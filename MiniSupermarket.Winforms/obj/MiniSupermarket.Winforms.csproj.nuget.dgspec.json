@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\MiniSupermarket_NgoMinhKhoi\\MiniSupermarket.Winforms\\MiniSupermarket.Winforms.csproj": {}
+    "D:\\MiniSupermarket_NgoMinhKhoi1\\MiniSupermarket.Winforms\\MiniSupermarket.Winforms.csproj": {}
   },
   "projects": {
-    "D:\\MiniSupermarket_NgoMinhKhoi\\MiniSupermarket.Winforms\\MiniSupermarket.Winforms.csproj": {
+    "D:\\MiniSupermarket_NgoMinhKhoi1\\MiniSupermarket.Winforms\\MiniSupermarket.Winforms.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\MiniSupermarket_NgoMinhKhoi\\MiniSupermarket.Winforms\\MiniSupermarket.Winforms.csproj",
+        "projectUniqueName": "D:\\MiniSupermarket_NgoMinhKhoi1\\MiniSupermarket.Winforms\\MiniSupermarket.Winforms.csproj",
         "projectName": "MiniSupermarket.Winforms",
-        "projectPath": "D:\\MiniSupermarket_NgoMinhKhoi\\MiniSupermarket.Winforms\\MiniSupermarket.Winforms.csproj",
+        "projectPath": "D:\\MiniSupermarket_NgoMinhKhoi1\\MiniSupermarket.Winforms\\MiniSupermarket.Winforms.csproj",
         "packagesPath": "C:\\Users\\Minh Khôi\\.nuget\\packages\\",
-        "outputPath": "D:\\MiniSupermarket_NgoMinhKhoi\\MiniSupermarket.Winforms\\obj\\",
+        "outputPath": "D:\\MiniSupermarket_NgoMinhKhoi1\\MiniSupermarket.Winforms\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
