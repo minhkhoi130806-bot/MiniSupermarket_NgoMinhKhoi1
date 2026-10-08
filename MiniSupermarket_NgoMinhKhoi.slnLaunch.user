@@ -1,0 +1,17 @@
+[
+  {
+    "Name": "New Profile",
+    "Projects": [
+      {
+        "Path": "MiniSupermarket.Winforms\\MiniSupermarket.Winforms.csproj",
+        "Action": "Start",
+        "DebugTarget": "MiniSupermarket.Winforms"
+      },
+      {
+        "Path": "MiniSupermarket.API\\MiniSupermarket.API.csproj",
+        "Action": "Start",
+        "DebugTarget": "https"
+      }
+    ]
+  }
+]
