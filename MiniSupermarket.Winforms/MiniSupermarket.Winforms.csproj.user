@@ -7,9 +7,6 @@
     <ActiveDebugProfile>MiniSupermarket.Winforms</ActiveDebugProfile>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Update="Form1.cs">
-      <SubType>Form</SubType>
-    </Compile>
     <Compile Update="FormCategoryManagement.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -19,7 +16,19 @@
     <Compile Update="FormLogin.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Update="FormMain.cs">
+    <Compile Update="FormMainShell.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="FormPOS.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="FormProductManagement.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="FormQuickReport.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="FormUserManagement.cs">
       <SubType>Form</SubType>
     </Compile>
   </ItemGroup>

@@ -5,7 +5,10 @@
         // Lưu JWT Token sau khi đăng nhập
         public static string JwtToken { get; set; } = string.Empty;
 
-        // Lưu quyền của tài khoản: Admin hoặc Cashier
+        // Lưu tên tài khoản (Username) hiện tại
+        public static string CurrentUsername { get; set; } = string.Empty;
+
+        // Lưu quyền của tài khoản: Admin, Cashier, hoặc Warehouse
         public static string CurrentRole { get; set; } = string.Empty;
     }
 }

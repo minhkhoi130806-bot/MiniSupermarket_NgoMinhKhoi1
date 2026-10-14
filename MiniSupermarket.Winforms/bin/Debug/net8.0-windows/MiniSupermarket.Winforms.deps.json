@@ -14,11 +14,6 @@
         },
         "runtime": {
           "MiniSupermarket.Winforms.dll": {}
-        },
-        "resources": {
-          "cs/MiniSupermarket.Winforms.resources.dll": {
-            "locale": "cs"
-          }
         }
       },
       "Azure.Core/1.41.0": {
