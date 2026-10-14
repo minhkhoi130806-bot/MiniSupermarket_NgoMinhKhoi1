@@ -50,7 +50,6 @@ D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\bin\Debug\net8.0-window
 D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\bin\Debug\net8.0-windows\System.Text.Json.dll
 D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\bin\Debug\net8.0-windows\runtimes\browser\lib\net8.0\System.Text.Encodings.Web.dll
 D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\obj\Debug\net8.0-windows\MiniSupermarket.Winforms.csproj.AssemblyReference.cache
-D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\obj\Debug\net8.0-windows\MiniSupermarket.Winforms.Form1.resources
 D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\obj\Debug\net8.0-windows\MiniSupermarket.WinForms.FormCategoryManagement.resources
 D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\obj\Debug\net8.0-windows\MiniSupermarket.WinForms.FormLogin.resources
 D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\obj\Debug\net8.0-windows\MiniSupermarket.Winforms.csproj.GenerateResource.cache
@@ -107,6 +106,8 @@ D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\bin\Debug\net8.0-window
 D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\bin\Debug\net8.0-windows\runtimes\win\lib\net6.0\System.Runtime.Caching.dll
 D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\bin\Debug\net8.0-windows\MiniSupermarket.API.dll
 D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\bin\Debug\net8.0-windows\MiniSupermarket.API.pdb
-D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\bin\Debug\net8.0-windows\cs\MiniSupermarket.Winforms.resources.dll
-D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\obj\Debug\net8.0-windows\MiniSupermarket.Winforms.FormMain.cs.resources
-D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\obj\Debug\net8.0-windows\cs\MiniSupermarket.Winforms.resources.dll
+D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\obj\Debug\net8.0-windows\MiniSupermarket.WinForms.FormMainShell.resources
+D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\obj\Debug\net8.0-windows\MiniSupermarket.WinForms.FormPOS.resources
+D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\obj\Debug\net8.0-windows\MiniSupermarket.WinForms.FormProductManagement.resources
+D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\obj\Debug\net8.0-windows\MiniSupermarket.WinForms.FormUserManagement.resources
+D:\MiniSupermarket_NgoMinhKhoi1\MiniSupermarket.Winforms\obj\Debug\net8.0-windows\MiniSupermarket.WinForms.FormQuickReport.resources

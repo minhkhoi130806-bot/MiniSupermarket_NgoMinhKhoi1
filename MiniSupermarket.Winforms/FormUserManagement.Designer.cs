@@ -1,6 +1,6 @@
-﻿namespace MiniSupermarket.Winforms
+﻿namespace MiniSupermarket.WinForms
 {
-    partial class FormMain : System.Windows.Forms.Form
+    partial class FormUserManagement
     {
         /// <summary>
         /// Required designer variable.
@@ -31,7 +31,7 @@
             this.components = new System.ComponentModel.Container();
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
-            this.Text = "FormMain";
+            this.Text = "FormUserManagement";
         }
 
         #endregion
