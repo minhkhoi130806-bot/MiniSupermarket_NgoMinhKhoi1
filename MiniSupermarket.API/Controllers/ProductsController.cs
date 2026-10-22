@@ -124,5 +124,42 @@ namespace MiniSupermarket.API.Controllers
 
             return NoContent();
         }
+
+        
+// GET: api/products/barcode/{barcode}
+// Tim san pham theo ma vach de POS them vao gio hang
+[HttpGet("barcode/{barcode}")]
+public async Task<IActionResult> GetByBarcode(string barcode)
+        {
+            if (string.IsNullOrWhiteSpace(barcode))
+            {
+                return BadRequest(new
+                {
+                    message = "Vui long nhap ma vach san pham!"
+                });
+            }
+
+            var product = await _context.Products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Barcode == barcode);
+
+            if (product == null)
+            {
+                return NotFound(new
+                {
+                    message = "Khong tim thay san pham co ma vach nay!"
+                });
+            }
+
+            return Ok(new
+            {
+                ProductId = product.ProductId,
+                Barcode = product.Barcode,
+                ProductName = product.ProductName,
+                Price = product.Price,
+                StockQuantity = product.StockQuantity
+            });
+        }
+
     }
 }

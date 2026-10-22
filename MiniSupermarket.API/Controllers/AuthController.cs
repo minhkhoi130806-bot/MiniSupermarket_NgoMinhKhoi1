@@ -1,10 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using MiniSupermarket.API.Services;
+using MiniSupermarket.API.Data;
 using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace MiniSupermarket.API.Controllers
 {
@@ -13,15 +16,20 @@ namespace MiniSupermarket.API.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IConfiguration _configuration;
+        private readonly SupermarketDbContext _context;
 
-        public AuthController(IConfiguration configuration)
+        public AuthController(
+            IConfiguration configuration,
+            SupermarketDbContext context)
         {
             _configuration = configuration;
+            _context = context;
         }
 
         // POST /api/auth/login
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginRequestDto? request)
+        public async Task<IActionResult> Login(
+            [FromBody] LoginRequestDto? request)
         {
             // Kiem tra du lieu dang nhap
             if (request == null ||
@@ -38,8 +46,9 @@ namespace MiniSupermarket.API.Controllers
             string username = request.Username.Trim();
             string password = request.Password.Trim();
 
-            // Tim tai khoan trong kho dung chung va kiem tra mat khau
-            var account = AccountStore.Find(username);
+            // Tim tai khoan trong SQL Server
+            var account = await _context.Users
+                .FirstOrDefaultAsync(u => u.Username == username);
 
             if (account == null || account.Password != password)
             {
@@ -60,7 +69,9 @@ namespace MiniSupermarket.API.Controllers
             }
 
             // Tao JWT theo tai khoan va vai tro
-            string token = GenerateJwtToken(account.Username, account.Role);
+            string token = GenerateJwtToken(
+                account.Username,
+                account.Role);
 
             return Ok(new
             {

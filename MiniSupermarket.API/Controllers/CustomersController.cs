@@ -54,6 +54,45 @@ namespace MiniSupermarket.API.Controllers
 
             return Ok(result);
         }
+        // Tra khách theo SĐT chính xác (dùng cho POS)
+        [HttpGet("phone/{phone}")]
+        public async Task<IActionResult> GetByPhone(string phone)
+        {
+            var customer = await _context.Customers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.PhoneNumber == phone);
+
+            if (customer == null)
+                return NotFound(new { message = "Không tìm thấy khách hàng!" });
+
+            return Ok(customer);
+        }
+
+        // Thu ngân đăng ký nhanh khách mới (không cần quyền Admin)
+        [Authorize]
+        [HttpPost("quick-register")]
+        public async Task<IActionResult> QuickRegister([FromBody] QuickRegisterRequest req)
+        {
+            if (string.IsNullOrWhiteSpace(req.CustomerName) || string.IsNullOrWhiteSpace(req.PhoneNumber))
+                return BadRequest(new { message = "Tên và số điện thoại không được để trống!" });
+
+            string phone = req.PhoneNumber.Trim();
+
+            if (await _context.Customers.AnyAsync(c => c.PhoneNumber == phone))
+                return Conflict(new { message = "Số điện thoại này đã tồn tại!" });
+
+            var customer = new Customer
+            {
+                CustomerName = req.CustomerName.Trim(),
+                PhoneNumber = phone
+            };
+
+            _context.Customers.Add(customer);
+            await _context.SaveChangesAsync();
+
+            return Ok(customer);
+        }
+
 
         // CREATE: Chi Admin moi duoc them khach hang
         [Authorize(Roles = "Admin")]
@@ -109,5 +148,10 @@ namespace MiniSupermarket.API.Controllers
 
             return NoContent();
         }
+    }
+    public class QuickRegisterRequest
+    {
+        public string CustomerName { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
     }
 }
