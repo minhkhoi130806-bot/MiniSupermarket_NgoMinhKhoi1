@@ -299,6 +299,27 @@ namespace MiniSupermarket.WinForms
                 }
             });
 
+// Hien thi ma danh muc
+grid.Columns.Add(new DataGridViewTextBoxColumn
+{
+    Name = "CategoryId",
+    DataPropertyName = "CategoryId",
+    HeaderText = "Mã danh mục",
+    FillWeight = 15,
+    MinimumWidth = 85
+});
+
+            // Hien thi ten danh muc
+            grid.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = "CategoryName",
+                DataPropertyName = "CategoryName",
+                HeaderText = "Danh mục",
+                FillWeight = 25,
+                MinimumWidth = 120
+            });
+
+
             grid.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = "Price",
@@ -667,6 +688,7 @@ namespace MiniSupermarket.WinForms
                 cboCategory.SelectedIndex = 0;
         }
 
+
         // Tai san pham tu API
         private async Task LoadProductsAsync()
         {
@@ -681,31 +703,56 @@ namespace MiniSupermarket.WinForms
 
             string json = await response.Content.ReadAsStringAsync();
 
-            // Ho tro API tra ve mang truc tiep hoac object co data
             using JsonDocument document = JsonDocument.Parse(json);
             JsonElement root = document.RootElement;
 
+            // Ho tro API tra ve mang truc tiep hoac object co data
             if (root.ValueKind == JsonValueKind.Object &&
                 TryGetJsonProperty(root, "data", out JsonElement data))
             {
-                json = data.GetRawText();
+                root = data;
             }
+
+            if (root.ValueKind != JsonValueKind.Array)
+                throw new InvalidOperationException(
+                    "API products không trả về danh sách hợp lệ.");
 
             productList.Clear();
 
-            List<ProductDto>? products =
-                JsonSerializer.Deserialize<List<ProductDto>>(
-                    json,
+            foreach (JsonElement item in root.EnumerateArray())
+            {
+                // Doc thong tin san pham
+                ProductDto? product = JsonSerializer.Deserialize<ProductDto>(
+                    item.GetRawText(),
                     new JsonSerializerOptions
                     {
                         PropertyNameCaseInsensitive = true
                     });
 
-            if (products != null)
-                productList.AddRange(products);
+                if (product == null)
+                    continue;
+
+                // Lay ten danh muc tu JSON
+                string categoryName = "";
+
+                if (TryGetJsonProperty(item, "category", out JsonElement category) &&
+                    category.ValueKind == JsonValueKind.Object)
+                {
+                    categoryName = ReadString(category, "CategoryName");
+
+                    if (string.IsNullOrWhiteSpace(categoryName))
+                        categoryName = ReadString(category, "Name");
+                }
+
+                // Gan ten danh muc vao DTO
+                product.CategoryName = categoryName;
+
+                productList.Add(product);
+            }
 
             DisplayProducts(productList);
         }
+
 
         // Hien thi danh sach len bang
         private void DisplayProducts(IEnumerable<ProductDto> products)
