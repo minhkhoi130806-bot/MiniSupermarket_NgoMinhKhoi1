@@ -28,6 +28,7 @@ namespace MiniSupermarket.WinForms
         private bool _formattingCash = false;
         private ReceiptData? _lastReceipt;
         private int? _customerId;
+        private int _pointsToRedeem = 0; // Tiêu chí 47: Số điểm khách muốn đổi trừ tiền
         private int _customerPoints;
         private const decimal VndPerPoint = 10000m;   // 10.000đ = 1 điểm
 
@@ -116,6 +117,7 @@ namespace MiniSupermarket.WinForms
                 case Keys.F8: ClearCart(true); return true;
                 case Keys.F9: btnCheckout.PerformClick(); return true;
                 case Keys.F10: RemoveSelectedItem(); return true;
+                case Keys.F11: RedeemPoints(); return true;
                 case Keys.Delete when dgvCart.Focused: RemoveSelectedItem(); return true;
                 case Keys.Add when !(ActiveControl is TextBox): ChangeQuantity(+1); return true;
                 case Keys.Subtract when !(ActiveControl is TextBox): ChangeQuantity(-1); return true;
@@ -424,7 +426,9 @@ namespace MiniSupermarket.WinForms
             };
 
             lblCustomerName = MakeLabel(_customerName, new Font("Segoe UI", 9.5F, FontStyle.Italic),
-                mutedColor, ContentAlignment.MiddleLeft);
+    mutedColor, ContentAlignment.MiddleLeft);
+            lblCustomerName.Cursor = Cursors.Hand;              // Hiện bàn tay khi rê chuột vào
+            lblCustomerName.Click += (s, e) => RedeemPoints();   // Bấm vào tên để mở hộp thoại đổi điểm
             layout.Controls.Add(lblCustomerName, 0, 2);
 
             // --- Tổng kết đơn hàng ---
@@ -730,7 +734,9 @@ namespace MiniSupermarket.WinForms
             decimal d = _discountIsPercent
                 ? Math.Round(sub * _discountValue / 100m)
                 : _discountValue;
-            return Math.Max(0, Math.Min(d, sub));
+            // Tiêu chí 47: Cộng thêm tiền quy đổi từ điểm thưởng (1 điểm = 1.000 đ)
+            d += (_pointsToRedeem * 1000m);
+            return Math.Min(sub, d);
         }
 
         private decimal GetTotal() => GetSubtotal() - GetDiscountAmount();
@@ -940,6 +946,7 @@ namespace MiniSupermarket.WinForms
         private void ResetOrderState()
         {
             _discountValue = 0;
+            _pointsToRedeem = 0;
             _discountIsPercent = false;
             txtCashReceived.Clear();
             txtCustomerPhone.Clear();
@@ -998,6 +1005,60 @@ namespace MiniSupermarket.WinForms
                 _discountIsPercent = false;
             }
 
+            UpdateCartDisplay(dgvCart.CurrentRow?.Index);
+            txtBarcode.Focus();
+        }
+
+        // Tiêu chí 47: Thu ngân đổi điểm thưởng trừ tiền trực tiếp vào hóa đơn (Phím tắt F8)
+        private void RedeemPoints()
+        {
+            if (_customerId == null)
+            {
+                Warn("Vui lòng tra cứu số điện thoại khách hàng trước khi đổi điểm!");
+                return;
+            }
+
+            if (_customerPoints <= 0)
+            {
+                Warn($"Khách hàng {_customerName} hiện có 0 điểm, không thể đổi điểm!");
+                return;
+            }
+
+            string prompt = $"Khách hàng [{_customerName}] hiện có {_customerPoints} điểm.\n(Quy đổi: 1 điểm = 1.000 đ trừ tiền hóa đơn)\nNhập số điểm muốn đổi (để trống hoặc 0 để hủy):";
+            string current = _pointsToRedeem > 0 ? _pointsToRedeem.ToString() : "";
+
+            string? input = ShowInputDialog("Đổi điểm thưởng trừ tiền (F8)", prompt, current);
+            if (input == null) return;
+
+            input = input.Trim();
+            if (string.IsNullOrEmpty(input) || input == "0")
+            {
+                _pointsToRedeem = 0;
+            }
+            else if (int.TryParse(input, out int pts) && pts > 0)
+            {
+                if (pts > _customerPoints)
+                {
+                    Warn($"Khách hàng chỉ có {_customerPoints} điểm, không đủ để đổi {pts} điểm!");
+                    return;
+                }
+
+                decimal money = pts * 1000m;
+                if (money > GetSubtotal())
+                {
+                    Warn($"Số tiền quy đổi ({money:N0} đ) vượt quá tổng tiền hóa đơn!");
+                    return;
+                }
+
+                _pointsToRedeem = pts;
+            }
+            else
+            {
+                Warn("Số điểm không hợp lệ!");
+                return;
+            }
+
+            RefreshCustomerLabel();
             UpdateCartDisplay(dgvCart.CurrentRow?.Index);
             txtBarcode.Focus();
         }
@@ -1174,7 +1235,11 @@ namespace MiniSupermarket.WinForms
                 return;
             }
             int earn = CalcEarnedPoints();
+            string redeemText = _pointsToRedeem > 0
+                ? $"  [Đã đổi {_pointsToRedeem} điểm = -{_pointsToRedeem * 1000:N0} đ]"
+                : "  👉 (Bấm vào đây hoặc ấn F11 để đổi điểm)";
             lblCustomerName.Text = $"{_customerName}  |  {_customerPoints} điểm" +
+                                   redeemText +
                                    (earn > 0 ? $"  (+{earn} đơn này)" : "");
             lblCustomerName.ForeColor = successColor;
         }
@@ -1269,13 +1334,19 @@ namespace MiniSupermarket.WinForms
                 return;
             }
 
+            decimal pureDiscount = _discountIsPercent
+    ? Math.Round(subtotal * _discountValue / 100m)
+    : _discountValue;
+
             var orderRequest = new
             {
                 CashierUsername = SessionManager.CurrentUsername,
                 CustomerId = _customerId,
                 CustomerPhone = txtCustomerPhone.Text.Trim(),
                 PaymentMethod = isCash ? "CASH" : "TRANSFER",
-                DiscountAmount = discount,
+                DiscountAmount = pureDiscount,
+                PointsToRedeem = _pointsToRedeem, // Gửi số điểm đổi lên API
+                AmountReceived = isCash ? cashReceived : total,
                 Items = _cart.Select(i => new
                 {
                     i.ProductId,
@@ -1292,34 +1363,26 @@ namespace MiniSupermarket.WinForms
 
                 if (response.IsSuccessStatusCode)
                 {
-                    int earned = 0, newTotal = _customerPoints;
-                    if (_customerId != null)
+                    int redeemed = _pointsToRedeem;
+                    int earned = 0;
+                    int newTotal = _customerPoints;
+
+                    // Đọc chính xác số điểm đã trừ và điểm mới từ API trả về
+                    try
                     {
-                        int clientEarned = CalcEarnedPoints();   // tính khi giỏ còn nguyên
-
-                        try
-                        {
-                            // Lấy điểm thật từ DB sau khi server đã cộng
-                            var cr = await ApiClientService.Client.GetAsync($"customers/{_customerId}");
-                            if (cr.IsSuccessStatusCode)
-                            {
-                                var fresh = await cr.Content.ReadFromJsonAsync<CustomerDto>();
-                                if (fresh != null)
-                                {
-                                    newTotal = fresh.RewardPoints;
-                                    earned = newTotal - _customerPoints;
-                                }
-                            }
-                        }
-                        catch { /* bỏ qua, dùng số tính tạm bên dưới */ }
-
-                        // Nếu vẫn không lấy được thì dùng số tính ở client
-                        if (earned <= 0)
-                        {
-                            earned = clientEarned;
-                            newTotal = _customerPoints + clientEarned;
-                        }
+                        var resJson = await response.Content.ReadAsStringAsync();
+                        using var doc = System.Text.Json.JsonDocument.Parse(resJson);
+                        var root = doc.RootElement;
+                        if (root.TryGetProperty("redeemedPoints", out var rp)) redeemed = rp.GetInt32();
+                        if (root.TryGetProperty("earnedPoints", out var ep)) earned = ep.GetInt32();
+                        if (root.TryGetProperty("totalPoints", out var tp)) newTotal = tp.GetInt32();
                     }
+                    catch
+                    {
+                        earned = CalcEarnedPoints();
+                        newTotal = Math.Max(0, _customerPoints - redeemed + earned);
+                    }
+
                     // Lưu lại dữ liệu hóa đơn trước khi xóa giỏ
                     _lastReceipt = new ReceiptData
                     {
@@ -1333,23 +1396,39 @@ namespace MiniSupermarket.WinForms
                         Phone = txtCustomerPhone.Text.Trim(),
                         CustomerName = _customerName,
                         Cashier = SessionManager.CurrentUsername ?? "",
+                        OldPoints = _customerPoints,
+                        RedeemedPoints = redeemed,
                         EarnedPoints = earned,
                         TotalPoints = _customerId != null ? newTotal : 0,
                         Time = DateTime.Now
                     };
 
+                    // Thông báo chi tiết điểm trên màn hình
+                    string pointInfo = "";
+                    if (_customerId != null)
+                    {
+                        pointInfo = $"\n\n--- THÔNG TIN ĐIỂM THƯỞNG ---" +
+                                    $"\n• Điểm trước thanh toán: {_customerPoints} điểm";
+                        if (redeemed > 0)
+                            pointInfo += $"\n• Điểm đổi trừ tiền: -{redeemed} điểm (-{redeemed * 1000:N0} đ)";
+                        if (earned > 0)
+                            pointInfo += $"\n• Điểm tích lũy đơn này: +{earned} điểm";
+                        pointInfo += $"\n• Tổng điểm còn lại: {newTotal} điểm";
+                    }
+
                     var answer = MessageBox.Show(
-    $"Thanh toán thành công!\nTổng tiền: {Money(total)}\nTiền thừa: {Money(_lastReceipt.Change)}" +
-    (_customerId != null ? $"\nĐiểm cộng: +{earned}  (tổng {newTotal})" : "") +
-    "\n\nBạn có muốn in hóa đơn không?",
-    "Thành công",
-    MessageBoxButtons.YesNo,
-    MessageBoxIcon.Information);
+                        $"Thanh toán thành công!\nTổng tiền: {Money(total)}\nTiền thừa: {Money(_lastReceipt.Change)}" +
+                        pointInfo +
+                        "\n\nBạn có muốn xem và in hóa đơn không?",
+                        "Thành công",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Information);
 
                     if (answer == DialogResult.Yes)
                         PrintReceipt(_lastReceipt);
 
                     _cart.Clear();
+                    _pointsToRedeem = 0; // Đặt lại điểm đổi về 0
                     ResetOrderState();
                     UpdateCartDisplay();
                     SetStatus("Thanh toán thành công. Sẵn sàng đơn mới.");
@@ -1455,11 +1534,16 @@ namespace MiniSupermarket.WinForms
                 Line("Tiền khách đưa:", d.Cash.ToString("N0", Vi), fNormal);
                 Line("Tiền thừa:", d.Change.ToString("N0", Vi), fNormal);
             }
-            if (d.TotalPoints > 0 || d.EarnedPoints > 0)
+            if (d.TotalPoints > 0 || d.EarnedPoints > 0 || d.RedeemedPoints > 0)
             {
                 Dash();
-                Line("Điểm cộng:", "+" + d.EarnedPoints, fNormal);
-                Line("Tổng điểm:", d.TotalPoints.ToString(), fBold);
+                if (d.OldPoints > 0)
+                    Line("Điểm cũ:", d.OldPoints.ToString("N0", Vi), fNormal);
+                if (d.RedeemedPoints > 0)
+                    Line("Điểm đã đổi:", "-" + d.RedeemedPoints.ToString("N0", Vi) + $" (-{d.RedeemedPoints * 1000:N0} đ)", fNormal);
+                if (d.EarnedPoints > 0)
+                    Line("Điểm cộng đơn này:", "+" + d.EarnedPoints.ToString("N0", Vi), fNormal);
+                Line("Tổng điểm tích lũy:", d.TotalPoints.ToString("N0", Vi), fBold);
             }
             Dash();
             y += 6;
@@ -1653,7 +1737,9 @@ namespace MiniSupermarket.WinForms
         public string CustomerName { get; set; } = string.Empty;
         public string Cashier { get; set; } = string.Empty;
         public DateTime Time { get; set; }
-        public int EarnedPoints { get; set; }
-        public int TotalPoints { get; set; }
+        public int OldPoints { get; set; }       // Điểm cũ trước khi thanh toán
+        public int RedeemedPoints { get; set; }  // Điểm đã đổi trừ tiền
+        public int EarnedPoints { get; set; }    // Điểm cộng từ đơn hàng
+        public int TotalPoints { get; set; }     // Tổng điểm còn lại
     }
 }

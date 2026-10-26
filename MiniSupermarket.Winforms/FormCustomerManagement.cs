@@ -32,6 +32,17 @@ namespace MiniSupermarket.Winforms
 
         private Label lblStatus = null!;
 
+        // Phân trang khách hàng
+        private int _currentPage = 1;
+        private int _pageSize = 8;
+        private int _totalPages = 1;
+        private int _totalRecords = 0;
+        private Button btnFirstPage = null!;
+        private Button btnPrevPage = null!;
+        private Label lblPageInfo = null!;
+        private Button btnNextPage = null!;
+        private Button btnLastPage = null!;
+
         private List<Customer> customerList = new List<Customer>();
 
         // Bang mau dong bo voi form Nhom hang
@@ -203,28 +214,109 @@ namespace MiniSupermarket.Winforms
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
-            // Dong trang thai duoi bang
+            // Thanh Footer chuyên nghiệp: Status bên trái, Cụm phân trang bên phải
+            TableLayoutPanel footerPanel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Bottom,
+                Height = LogicalToDeviceUnits(48),
+                ColumnCount = 2,
+                RowCount = 1,
+                BackColor = Color.FromArgb(248, 250, 252),
+                Padding = new Padding(12, 6, 12, 6),
+                Margin = Padding.Empty
+            };
+            footerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); // Status dạt sang trái
+            footerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));   // Các nút dạt sang phải
+            footerPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
             lblStatus = new Label
             {
                 Text = "Chưa tải dữ liệu",
-                Dock = DockStyle.Bottom,
-                Height = LogicalToDeviceUnits(28),
-                ForeColor = Color.DimGray,
-                TextAlign = ContentAlignment.MiddleLeft
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Regular),
+                ForeColor = mutedColor,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Margin = Padding.Empty
             };
+
+            FlowLayoutPanel paginationPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty
+            };
+
+            // 1. Nút về trang đầu
+            btnFirstPage = CreatePageNavButton("⏮ Đầu");
+            btnFirstPage.Click += async (s, e) =>
+            {
+                if (_currentPage > 1) await LoadCustomersPagedAsync(1);
+            };
+
+            // 2. Nút lùi 1 trang
+            btnPrevPage = CreatePageNavButton("◀ Trước");
+            btnPrevPage.Click += async (s, e) =>
+            {
+                if (_currentPage > 1) await LoadCustomersPagedAsync(_currentPage - 1);
+            };
+
+            // 3. Nhãn hiển thị số trang dạng huy hiệu (Badge)
+            lblPageInfo = new Label
+            {
+                Text = "Trang 1 / 1",
+                AutoSize = false,
+                Width = LogicalToDeviceUnits(110),
+                Height = LogicalToDeviceUnits(32),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                ForeColor = primaryColor,
+                BackColor = Color.FromArgb(239, 246, 255),
+                Margin = new Padding(4, 0, 4, 0)
+            };
+
+            // 4. Nút tiến 1 trang
+            btnNextPage = CreatePageNavButton("Sau ▶");
+            btnNextPage.Click += async (s, e) =>
+            {
+                if (_currentPage < _totalPages) await LoadCustomersPagedAsync(_currentPage + 1);
+            };
+
+            // 5. Nút đến trang cuối
+            btnLastPage = CreatePageNavButton("Cuối ⏭");
+            btnLastPage.Click += async (s, e) =>
+            {
+                if (_currentPage < _totalPages) await LoadCustomersPagedAsync(_totalPages);
+            };
+
+            // Thêm các nút vào cụm phân trang
+            paginationPanel.Controls.Add(btnFirstPage);
+            paginationPanel.Controls.Add(btnPrevPage);
+            paginationPanel.Controls.Add(lblPageInfo);
+            paginationPanel.Controls.Add(btnNextPage);
+            paginationPanel.Controls.Add(btnLastPage);
+
+            // Đưa vào Footer
+            footerPanel.Controls.Add(lblStatus, 0, 0);
+            footerPanel.Controls.Add(paginationPanel, 1, 0);
 
             dgvCustomers = CreateGrid();
             dgvCustomers.CellClick += dgvCustomers_CellClick;
             dgvCustomers.CellFormatting += dgvCustomers_CellFormatting;
 
-            // Fill add TRUOC, Top/Bottom add SAU
-            card.Controls.Add(dgvCustomers);  // Fill
-            card.Controls.Add(lblStatus);     // Bottom
-            card.Controls.Add(_searchBar);    // Top (duoi tieu de)
-            card.Controls.Add(_lblListTitle); // Top (tren cung)
+            // Thứ tự Add vào Card
+            card.Controls.Add(dgvCustomers);  // Fill ở giữa
+            card.Controls.Add(footerPanel);   // Footer ở dưới cùng
+            card.Controls.Add(_searchBar);    // Thanh tìm kiếm ở trên
+            card.Controls.Add(_lblListTitle); // Tiêu đề ở trên cùng
 
             return card;
         }
+
+
 
         // Bang danh sach: cot tu chia theo chieu rong, dong co chieu cao co dinh
         private DataGridView CreateGrid()
@@ -641,7 +733,7 @@ namespace MiniSupermarket.Winforms
 
         private async void FormCustomerManagement_Load(object? sender, EventArgs e)
         {
-            await LoadCustomersAsync();
+            await LoadCustomersPagedAsync(1); // Đổi thành dòng này
         }
 
         private async Task LoadCustomersAsync()
@@ -685,11 +777,10 @@ namespace MiniSupermarket.Winforms
         private async void btnLoad_Click(object? sender, EventArgs e)
         {
             SetBusy(true);
-
             try
             {
                 txtKeyword.Clear();
-                await LoadCustomersAsync();
+                await LoadCustomersPagedAsync(1); // Đổi thành dòng này
             }
             finally
             {
@@ -961,6 +1052,75 @@ namespace MiniSupermarket.Winforms
                 "Lỗi",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
+        }
+
+        // Hàm tạo nút phân trang chuẩn giao diện đẹp
+        private Button CreatePageNavButton(string text)
+        {
+            Button btn = new Button
+            {
+                Text = text,
+                Width = LogicalToDeviceUnits(80),
+                Height = LogicalToDeviceUnits(32),
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(51, 65, 85),
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                UseVisualStyleBackColor = false,
+                Margin = new Padding(3, 0, 3, 0)
+            };
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(241, 245, 249);
+            btn.FlatAppearance.MouseDownBackColor = Color.FromArgb(226, 232, 240);
+            return btn;
+        }
+
+        // Tiêu chí 25: Hàm tải khách hàng phân trang từ API Server
+        private async Task LoadCustomersPagedAsync(int page)
+        {
+            if (!PrepareAuthorization()) return;
+            lblStatus.Text = $"Đang tải dữ liệu trang {page}...";
+
+            try
+            {
+                var response = await ApiClientService.Client.GetAsync($"customers/paged?page={page}&pageSize={_pageSize}");
+                if (!response.IsSuccessStatusCode)
+                    throw new Exception($"Lỗi máy chủ: {response.StatusCode}");
+
+                string json = await response.Content.ReadAsStringAsync();
+                using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(json);
+                System.Text.Json.JsonElement root = document.RootElement;
+
+                _currentPage = root.GetProperty("currentPage").GetInt32();
+                _totalPages = root.GetProperty("totalPages").GetInt32();
+                _totalRecords = root.GetProperty("totalRecords").GetInt32();
+                System.Text.Json.JsonElement data = root.GetProperty("data");
+
+                customerList.Clear();
+                foreach (System.Text.Json.JsonElement item in data.EnumerateArray())
+                {
+                    var c = System.Text.Json.JsonSerializer.Deserialize<Customer>(
+                        item.GetRawText(),
+                        new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (c != null) customerList.Add(c);
+                }
+
+                DisplayCustomers(customerList, "Hiển thị");
+
+                // Cập nhật nhãn và trạng thái nút
+                lblPageInfo.Text = $"Trang {_currentPage} / {_totalPages}";
+                btnFirstPage.Enabled = _currentPage > 1;
+                btnPrevPage.Enabled = _currentPage > 1;
+                btnNextPage.Enabled = _currentPage < _totalPages;
+                btnLastPage.Enabled = _currentPage < _totalPages;
+                lblStatus.Text = $"📌 Hiển thị trang {_currentPage}/{_totalPages}  •  Tổng cộng: {_totalRecords} khách hàng";
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "Lỗi khi tải khách hàng: " + ex.Message;
+            }
         }
     }
 }

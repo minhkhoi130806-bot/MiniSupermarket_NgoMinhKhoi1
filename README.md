@@ -242,3 +242,72 @@ Yêu cầu:
 - **Lớp học phần:** CCQ2411D
 - **Môn học:** Lập trình Ứng dụng .NET Core
 - **Nội dung thực hành:** Buổi 4 – Thiết kế giao diện WinForms Shell và điều hướng phân quyền người dùng
+
+
+---
+
+## 🚀 9. Hướng dẫn cài đặt và khởi chạy dự án (Getting Started)
+
+### 9.1. Yêu cầu môi trường
+- **.NET 9.0 SDK** (hoặc .NET 8.0/9.0 tương thích).
+- **Microsoft SQL Server** (SQL Server 2019/2022 hoặc LocalDB).
+- **Visual Studio 2022** (với workload *.NET Desktop Development* và *ASP.NET and web development*).
+
+### 9.2. Cấu hình Cơ sở dữ liệu
+1. Mở file `MiniSupermarket.API/appsettings.json`.
+2. Kiểm tra chuỗi kết nối `DefaultConnection`:
+```json
+"ConnectionStrings": {
+  "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=MiniSupermarketDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
+}
+```
+*(Có thể thay đổi chuỗi kết nối này trỏ đến SQL Server instance trên máy của bạn nếu cần).*
+
+3. Khởi tạo CSDL và nạp dữ liệu mẫu:
+   - Khi chạy API lần đầu, hệ thống sẽ tự động áp dụng Migration và nạp dữ liệu Seed Data (bao gồm các tài khoản mẫu, nhóm hàng, sản phẩm và khách hàng VIP).
+
+### 9.3. Các bước chạy hệ thống
+1. **Khởi chạy Backend (Web API):**
+   - Đặt project `MiniSupermarket.API` làm Startup Project (hoặc chạy lệnh: `dotnet run --project MiniSupermarket.API`).
+   - Tài liệu Swagger UI sẽ sẵn sàng tại đường dẫn: `https://localhost:7000/swagger` (hoặc cổng HTTP hiển thị trên console).
+
+2. **Khởi chạy Frontend (WinForms Client):**
+   - Đặt project `MiniSupermarket.Winforms` làm Startup Project (hoặc chạy lệnh: `dotnet run --project MiniSupermarket.Winforms`).
+   - Màn hình Đăng nhập sẽ xuất hiện. Đăng nhập bằng một trong các tài khoản bên dưới để kiểm tra phân quyền.
+
+---
+
+## 🔑 10. Tài khoản kiểm thử phân quyền (Role-based Authentication)
+
+| Tài khoản | Mật khẩu | Vai trò (Role) | Phạm vi quyền hạn truy cập |
+| :--- | :--- | :--- | :--- |
+| **admin** | `admin123` | **Admin** | Toàn quyền: Xem Báo cáo Dashboard, Quản trị tài khoản, Sản phẩm, Nhóm hàng, Khách hàng, POS |
+| **cashier01** | `cashier123` | **Cashier** | Chỉ truy cập: Màn hình Bán hàng (POS) và Tra cứu/Đăng ký nhanh Khách hàng |
+| **ware01** | `ware123` | **Warehouse** | Chỉ truy cập: Quản lý Danh mục (Nhóm hàng) và Quản lý Sản phẩm / Tồn kho |
+
+---
+
+## 🏆 11. Tổng kết các tính năng kỹ thuật nâng cao đạt được (Chuẩn 50 tiêu chí)
+
+Dự án đã hoàn thành đầy đủ tất cả các yêu cầu theo quy chuẩn đồ án môn học:
+
+1. **Kiến trúc phân tầng chuẩn:**
+   - Ứng dụng máy trạm Desktop WinForms Client giao tiếp tập trung với ASP.NET Core Web API thông qua `HttpClient` và định dạng JSON.
+   - Cơ sở dữ liệu SQL Server quản lý bằng Entity Framework Core kết hợp các thao tác truy vấn hiệu năng cao bằng ADO.NET.
+
+2. **Bảo mật & Phân quyền:**
+   - Cơ chế xác thực phi trạng thái bằng **JWT (JSON Web Token)**.
+   - Phân quyền theo vai trò **RBAC** bằng thuộc tính `[Authorize(Roles = "...")]` tại Controller và ẩn/hiện động các nút điều hướng trên giao diện `FormMainShell`.
+   - Cấu hình CORS `AllowAll` cho phép kết nối linh hoạt giữa Client và API.
+
+3. **Tối ưu hóa và Kỹ thuật CSDL nâng cao:**
+   - **Phân trang dữ liệu máy chủ (Server-side Paging):** Tối ưu hóa truy vấn bằng LINQ `.Skip()` và `.Take()`, hiển thị mượt mà với thanh điều hướng 8 dòng/trang trên cả Sản phẩm, Nhóm hàng và Khách hàng.
+   - **Tra cứu mã vạch siêu tốc bằng ADO.NET:** Sử dụng `SqlConnection`, `SqlCommand`, `SqlDataReader` và tham số hóa chống tấn công SQL Injection.
+   - **Báo cáo bằng Stored Procedure:** Tạo và gọi thủ tục lưu trữ `sp_GetDailyRevenue` qua ADO.NET để thống kê doanh thu đa chiều.
+   - **Giao dịch thanh toán an toàn (Transaction Scope):** Thực hiện trừ tồn kho sản phẩm, tích điểm và trừ điểm thưởng của khách hàng đồng thời trong cùng một giao dịch (Rollback nếu xảy ra lỗi).
+
+4. **Trải nghiệm người dùng (UX/UI):**
+   - **Cảnh báo hàng sắp hết kho (Low-Stock Alert):** Tự động đổi màu nền ô tồn kho thành màu cam đỏ (`LightCoral`) cho các mặt hàng có số lượng tồn `<= 10`.
+   - **Dashboard & Báo cáo doanh thu:** Hiển thị 4 thẻ chỉ số KPI tổng quan, biểu đồ cột tăng trưởng doanh thu (`RevenueBarChart`), và thống kê Top 5 sản phẩm bán chạy nhất.
+   - **Xuất dữ liệu Excel/CSV:** Hỗ trợ quản lý tải toàn bộ danh sách sản phẩm và số lượng tồn kho ra tệp tin `.csv`.
+   - **Hóa đơn chuyên nghiệp:** In phiếu thanh toán chi tiết đầy đủ thông tin thu ngân, mã vạch, tiền khách đưa, tiền thừa và số điểm thưởng tích lũy/sử dụng.

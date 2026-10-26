@@ -1,7 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MiniSupermarket.API.Data;
 using MiniSupermarket.API.Models;
+using Microsoft.Data.SqlClient;
+using System.Data;
 
 namespace MiniSupermarket.API.Controllers
 {
@@ -60,6 +63,7 @@ namespace MiniSupermarket.API.Controllers
         }
 
         // 4. POST: Thêm sản phẩm mới (Chỉ Admin)
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Product newProduct)
         {
@@ -80,6 +84,7 @@ namespace MiniSupermarket.API.Controllers
         }
 
         // 5. PUT: Cập nhật sản phẩm (Chỉ Admin)
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] Product updateData)
         {
@@ -105,6 +110,7 @@ namespace MiniSupermarket.API.Controllers
         }
 
         // 6. DELETE: Xóa sản phẩm (Chỉ Admin)
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -158,6 +164,99 @@ public async Task<IActionResult> GetByBarcode(string barcode)
                 ProductName = product.ProductName,
                 Price = product.Price,
                 StockQuantity = product.StockQuantity
+            });
+        }
+
+
+        // GET: api/products/adonet-barcode/{barcode}
+        // Tra cứu Barcode bằng ADO.NET thuần: SqlConnection, SqlCommand, SqlDataReader, SqlParameter
+        [HttpGet("adonet-barcode/{barcode}")]
+        public async Task<IActionResult> GetBarcodeByAdoNet(string barcode)
+        {
+            if (string.IsNullOrWhiteSpace(barcode))
+            {
+                return BadRequest(new { message = "Vui lòng nhập mã vạch cần tra cứu!" });
+            }
+
+            var connectionString = _context.Database.GetConnectionString();
+
+            // 1. Dùng using bọc SqlConnection đảm bảo đóng kết nối an toàn
+            await using (var conn = new SqlConnection(connectionString))
+            {
+                await conn.OpenAsync();
+
+                // 2. Câu lệnh SQL có tham số hóa chống SQL Injection
+                string sql = @"SELECT TOP 1 p.ProductId, p.Barcode, p.ProductName, p.Price, p.StockQuantity, c.CategoryName 
+                       FROM Products p
+                       LEFT JOIN Categories c ON p.CategoryId = c.CategoryId
+                       WHERE p.Barcode = @Barcode";
+
+                await using (var cmd = new SqlCommand(sql, conn))
+                {
+                    // 3. Sử dụng SqlParameter chống tấn công SQL Injection
+                    cmd.Parameters.Add(new SqlParameter("@Barcode", SqlDbType.NVarChar, 50) { Value = barcode.Trim() });
+
+                    // 4. Sử dụng SqlDataReader duyệt một chiều siêu tốc
+                    await using (var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleRow))
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            var product = new
+                            {
+                                ProductId = reader.GetInt32(reader.GetOrdinal("ProductId")),
+                                Barcode = reader.GetString(reader.GetOrdinal("Barcode")),
+                                ProductName = reader.GetString(reader.GetOrdinal("ProductName")),
+                                Price = reader.GetDecimal(reader.GetOrdinal("Price")),
+                                StockQuantity = reader.GetInt32(reader.GetOrdinal("StockQuantity")),
+                                CategoryName = reader.IsDBNull(reader.GetOrdinal("CategoryName")) ? "" : reader.GetString(reader.GetOrdinal("CategoryName"))
+                            };
+
+                            return Ok(product);
+                        }
+                    }
+                }
+            }
+
+            return NotFound(new { message = "Không tìm thấy sản phẩm có mã vạch này trong CSDL!" });
+        }
+
+
+        // GET: api/products/paged?page=1&pageSize=10
+        [HttpGet("paged")]
+        public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1 || pageSize > 50) pageSize = 10;
+
+            var query = _context.Products.Include(p => p.Category).AsNoTracking();
+
+            var totalRecords = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+            var items = await query
+                .OrderBy(p => p.ProductId)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => new
+                {
+                    p.ProductId,
+                    p.Barcode,
+                    p.ProductName,
+                    p.Price,
+                    p.StockQuantity,
+                    p.CategoryId,
+                    CategoryName = p.Category != null ? p.Category.CategoryName : "",
+                    Category = p.Category
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                currentPage = page,
+                pageSize = pageSize,
+                totalRecords = totalRecords,
+                totalPages = totalPages,
+                data = items
             });
         }
 

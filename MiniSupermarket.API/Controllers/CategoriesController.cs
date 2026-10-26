@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MiniSupermarket.API.Data;
 using MiniSupermarket.API.Models;
@@ -53,6 +54,7 @@ namespace MiniSupermarket.API.Controllers
         }
 
         // 4. CREATE: Thêm mới nhóm hàng -> Chỉ Admin mới được làm
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Category newCat)
         {
@@ -73,6 +75,7 @@ namespace MiniSupermarket.API.Controllers
         }
 
         // 5. UPDATE: Cập nhật nhóm hàng -> Chỉ Admin mới được làm
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] Category updateCat)
         {
@@ -95,6 +98,7 @@ namespace MiniSupermarket.API.Controllers
         }
 
         // 6. DELETE: Xóa nhóm hàng -> Chỉ Admin mới được làm
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -113,6 +117,34 @@ namespace MiniSupermarket.API.Controllers
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+
+        // GET: api/categories/paged?page=1&pageSize=8
+        [HttpGet("paged")]
+        public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 8)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1 || pageSize > 50) pageSize = 8;
+
+            var query = _context.Categories.AsNoTracking();
+
+            var totalRecords = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+            var items = await query
+                .OrderBy(c => c.CategoryId)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return Ok(new
+            {
+                currentPage = page,
+                pageSize = pageSize,
+                totalRecords = totalRecords,
+                totalPages = totalPages,
+                data = items
+            });
         }
     }
 }

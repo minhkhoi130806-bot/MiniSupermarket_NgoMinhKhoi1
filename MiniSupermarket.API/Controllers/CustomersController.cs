@@ -148,7 +148,37 @@ namespace MiniSupermarket.API.Controllers
 
             return NoContent();
         }
+
+        // GET: api/customers/paged?page=1&pageSize=8
+        [HttpGet("paged")]
+        public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 8)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1 || pageSize > 50) pageSize = 8;
+
+            var query = _context.Customers.AsNoTracking();
+
+            var totalRecords = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+
+            var items = await query
+                .OrderBy(c => c.CustomerId)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return Ok(new
+            {
+                currentPage = page,
+                pageSize = pageSize,
+                totalRecords = totalRecords,
+                totalPages = totalPages,
+                data = items
+            });
+        }
     }
+
+
     public class QuickRegisterRequest
     {
         public string CustomerName { get; set; } = string.Empty;

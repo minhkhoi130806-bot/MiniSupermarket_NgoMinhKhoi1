@@ -80,8 +80,20 @@ namespace MiniSupermarket.API.Controllers
                 totalItems += item.Quantity;
             }
 
-            // Giảm giá do POS gửi lên, giới hạn trong khoảng 0 đến tạm tính
-            decimal discount = Math.Min(Math.Max(0, request.DiscountAmount), totalAmount);
+            // Tiêu chí 47: Đổi điểm thưởng trừ tiền hóa đơn (1 điểm = 1.000 đ)
+            // Khách có điểm tích lũy, có thể dùng điểm để trừ tiền (vd: 50 điểm = giảm 50.000đ)
+            decimal pointsDiscount = 0;
+            if (customer != null && request.PointsToRedeem > 0)
+            {
+                if (request.PointsToRedeem > customer.RewardPoints)
+                {
+                    return BadRequest(new { message = $"Khách hàng chỉ có {customer.RewardPoints} điểm, không đủ để đổi {request.PointsToRedeem} điểm!" });
+                }
+                pointsDiscount = request.PointsToRedeem * 1000m;
+            }
+
+            // Giảm giá do POS gửi lên + giảm giá từ điểm thưởng, giới hạn trong khoảng 0 đến tạm tính
+            decimal discount = Math.Min(Math.Max(0, request.DiscountAmount + pointsDiscount), totalAmount);
             decimal finalAmount = totalAmount - discount;
 
             // Hình thức thanh toán
@@ -143,11 +155,15 @@ namespace MiniSupermarket.API.Controllers
                     product.StockQuantity -= item.Quantity;
                 }
 
-                // Cộng điểm cho khách hàng
+                // Tiêu chí 47 & 35: Cập nhật điểm trong cùng một Transaction: trừ điểm đã đổi và cộng điểm mới
                 int totalPoints = 0;
                 if (customer != null)
                 {
-                    customer.RewardPoints += earnedPoints;
+                    if (request.PointsToRedeem > 0)
+                    {
+                        customer.RewardPoints -= request.PointsToRedeem; // Trừ điểm đã dùng đổi tiền
+                    }
+                    customer.RewardPoints += earnedPoints; // Cộng điểm tích lũy của đơn hàng mới
                     totalPoints = customer.RewardPoints;
                 }
 
@@ -162,6 +178,8 @@ namespace MiniSupermarket.API.Controllers
                     totalAmount = order.TotalAmount,
                     discountAmount = order.DiscountAmount,
                     finalAmount = order.FinalAmount,
+                    redeemedPoints = request.PointsToRedeem,
+                    pointsDiscount = pointsDiscount,
                     earnedPoints,
                     totalPoints
                 });
@@ -169,7 +187,7 @@ namespace MiniSupermarket.API.Controllers
             catch
             {
                 await transaction.RollbackAsync();
-                return StatusCode(500, new { message = "Lỗi khi lưu đơn hàng!" });
+                return StatusCode(500, new { message = "Lỗi khi lưu đơn hàng! Giao dịch đã được tự động hoàn tác (Rollback)." });
             }
         }
     }
@@ -181,6 +199,7 @@ namespace MiniSupermarket.API.Controllers
         public string? CustomerPhone { get; set; }
         public string PaymentMethod { get; set; } = "CASH";
         public decimal DiscountAmount { get; set; }
+        public int PointsToRedeem { get; set; } = 0; // Tiêu chí 47: Số điểm muốn đổi trừ tiền (1 điểm = 1.000đ)
         public decimal? AmountReceived { get; set; }
         public List<CheckoutItemRequest> Items { get; set; } = new();
     }

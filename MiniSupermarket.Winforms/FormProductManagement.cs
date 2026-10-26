@@ -34,6 +34,17 @@ namespace MiniSupermarket.WinForms
 
         private Label lblStatus = null!;
 
+        // Tiêu chí 25: Các biến điều khiển phân trang
+        private int _currentPage = 1;
+        private int _pageSize = 8;
+        private int _totalPages = 1;
+        private int _totalRecords = 0;
+        private Button btnFirstPage = null!;
+        private Button btnPrevPage = null!;
+        private Label lblPageInfo = null!;
+        private Button btnNextPage = null!;
+        private Button btnLastPage = null!;
+
         // Mau giao dien dong bo voi FormCategoryManagement
         private readonly Color backgroundColor =
             Color.FromArgb(244, 246, 250);
@@ -149,7 +160,7 @@ namespace MiniSupermarket.WinForms
             {
                 Dock = DockStyle.Top,
                 Height = 48,
-                ColumnCount = 3,
+                ColumnCount = 4,
                 RowCount = 1,
                 Padding = new Padding(0, 5, 0, 5),
                 Margin = Padding.Empty
@@ -161,6 +172,8 @@ namespace MiniSupermarket.WinForms
                 new ColumnStyle(SizeType.Absolute, 110));
             searchBar.ColumnStyles.Add(
                 new ColumnStyle(SizeType.Absolute, 100));
+            searchBar.ColumnStyles.Add(
+                new ColumnStyle(SizeType.Absolute, 110));
             searchBar.RowStyles.Add(
                 new RowStyle(SizeType.Percent, 100));
 
@@ -192,26 +205,111 @@ namespace MiniSupermarket.WinForms
             btnLoad.Margin = new Padding(8, 0, 0, 0);
             btnLoad.Click += btnLoad_Click;
 
+            Button btnExportCsv = CreateActionButton(
+    "XUẤT CSV", Color.FromArgb(22, 163, 74));
+            btnExportCsv.Margin = new Padding(8, 0, 0, 0);
+            btnExportCsv.Click += (s, e) => ExportProductsToCsv();
+
             searchBar.Controls.Add(txtKeyword, 0, 0);
             searchBar.Controls.Add(btnSearch, 1, 0);
             searchBar.Controls.Add(btnLoad, 2, 0);
+            searchBar.Controls.Add(btnExportCsv, 3, 0);
+
+
 
             dgvProducts = CreateGrid();
             dgvProducts.CellClick += dgvProducts_CellClick;
 
+            // Thanh phân trang (Trang trước, Trang sau, Số trang)
+            // Thanh Footer chuyên nghiệp: Thông tin trạng thái bên trái, Cụm phân trang bên phải
+            TableLayoutPanel footerPanel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 48,
+                ColumnCount = 2,
+                RowCount = 1,
+                BackColor = Color.FromArgb(248, 250, 252),
+                Padding = new Padding(12, 6, 12, 6),
+                Margin = Padding.Empty
+            };
+            footerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); // Status bên trái
+            footerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));   // Cụm nút bên phải
+            footerPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
             lblStatus = new Label
             {
                 Text = "Chưa tải dữ liệu",
-                Dock = DockStyle.Bottom,
-                Height = 30,
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Regular),
                 ForeColor = mutedColor,
                 TextAlign = ContentAlignment.MiddleLeft,
                 Margin = Padding.Empty
             };
 
-            // Them control theo thu tu de Dock khong bi che
+            FlowLayoutPanel paginationPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty
+            };
+
+            btnFirstPage = CreatePageNavButton("⏮ Đầu");
+            btnFirstPage.Click += async (s, e) =>
+            {
+                if (_currentPage > 1)
+                    await LoadProductsPagedAsync(1);
+            };
+
+            btnPrevPage = CreatePageNavButton("◀ Trước");
+            btnPrevPage.Click += async (s, e) =>
+            {
+                if (_currentPage > 1)
+                    await LoadProductsPagedAsync(_currentPage - 1);
+            };
+
+            lblPageInfo = new Label
+            {
+                Text = "Trang 1 / 1",
+                AutoSize = false,
+                Width = 110,
+                Height = 32,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                ForeColor = primaryColor,
+                BackColor = Color.FromArgb(239, 246, 255), // Badge xanh nhạt hiện đại
+                Margin = new Padding(4, 0, 4, 0)
+            };
+
+            btnNextPage = CreatePageNavButton("Sau ▶");
+            btnNextPage.Click += async (s, e) =>
+            {
+                if (_currentPage < _totalPages)
+                    await LoadProductsPagedAsync(_currentPage + 1);
+            };
+
+            btnLastPage = CreatePageNavButton("Cuối ⏭");
+            btnLastPage.Click += async (s, e) =>
+            {
+                if (_currentPage < _totalPages)
+                    await LoadProductsPagedAsync(_totalPages);
+            };
+
+            paginationPanel.Controls.Add(btnFirstPage);
+            paginationPanel.Controls.Add(btnPrevPage);
+            paginationPanel.Controls.Add(lblPageInfo);
+            paginationPanel.Controls.Add(btnNextPage);
+            paginationPanel.Controls.Add(btnLastPage);
+
+            footerPanel.Controls.Add(lblStatus, 0, 0);
+            footerPanel.Controls.Add(paginationPanel, 1, 0);
+
+            // Thứ tự Add vào Card
             card.Controls.Add(dgvProducts);
-            card.Controls.Add(lblStatus);
+            card.Controls.Add(footerPanel);
             card.Controls.Add(searchBar);
             card.Controls.Add(lblListTitle);
 
@@ -348,8 +446,72 @@ grid.Columns.Add(new DataGridViewTextBoxColumn
                         DataGridViewContentAlignment.MiddleCenter
                 }
             });
+            // Bắt sự kiện CellFormatting để tô màu cảnh báo hàng sắp hết kho (tồn <= 10)
+            grid.CellFormatting += dgvProducts_CellFormatting;
+
+
+
 
             return grid;
+
+
+
+        }
+
+        // Sự kiện CellFormatting: Tô màu đỏ nhạt (LightCoral) khi số lượng tồn kho <= 10
+        private void dgvProducts_CellFormatting(object? sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.CellStyle == null) return;
+
+            // Kiểm tra nếu đang format ô của cột "StockQuantity" (Tồn kho)
+            if (dgvProducts.Columns[e.ColumnIndex].Name == "StockQuantity")
+            {
+                if (e.Value != null && int.TryParse(e.Value.ToString(), out int stock) && stock <= 10)
+                {
+                    e.CellStyle.BackColor = Color.LightCoral;
+                    e.CellStyle.ForeColor = Color.White;
+                    e.CellStyle.Font = new Font(dgvProducts.Font, FontStyle.Bold);
+                }
+            }
+        }
+
+        // Tiêu chí 48: Xuất toàn bộ danh sách sản phẩm kèm số lượng tồn kho ra file CSV
+        private void ExportProductsToCsv()
+        {
+            if (productList == null || productList.Count == 0)
+            {
+                MessageBox.Show("Chưa có dữ liệu sản phẩm để xuất!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            using var dlg = new SaveFileDialog
+            {
+                Filter = "Tệp CSV (*.csv)|*.csv",
+                FileName = $"DanhSachSanPham_TonKho_{DateTime.Now:yyyyMMdd_HHmmss}.csv"
+            };
+
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+            try
+            {
+                var sb = new System.Text.StringBuilder();
+                // Dòng tiêu đề cột
+                sb.AppendLine("Mã SP,Mã vạch,Tên sản phẩm,Danh mục,Đơn giá (VNĐ),Số lượng tồn");
+
+                foreach (var p in productList)
+                {
+                    string safeName = $"\"{p.ProductName.Replace("\"", "\"\"")}\"";
+                    string safeCat = $"\"{p.CategoryName.Replace("\"", "\"\"")}\"";
+                    sb.AppendLine($"{p.ProductId},\"{p.Barcode}\",{safeName},{safeCat},{p.Price},{p.StockQuantity}");
+                }
+
+                System.IO.File.WriteAllText(dlg.FileName, sb.ToString(), System.Text.Encoding.UTF8);
+                MessageBox.Show("Xuất danh sách sản phẩm và tồn kho ra file CSV thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khi xuất file: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         // The thong tin chi tiet san pham
@@ -510,6 +672,8 @@ grid.Columns.Add(new DataGridViewTextBoxColumn
             btnClear.Margin = new Padding(4, 4, 0, 0);
             btnClear.Click += (s, e) => ClearInputs();
 
+
+
             grid.Controls.Add(btnAdd, 0, 0);
             grid.Controls.Add(btnUpdate, 1, 0);
             grid.Controls.Add(btnDelete, 0, 1);
@@ -536,6 +700,29 @@ grid.Columns.Add(new DataGridViewTextBoxColumn
 
             button.FlatAppearance.BorderSize = 0;
             return button;
+        }
+
+        private Button CreatePageNavButton(string text)
+        {
+            Button btn = new Button
+            {
+                Text = text,
+                Width = 80,
+                Height = 32,
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(51, 65, 85),
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                UseVisualStyleBackColor = false,
+                Margin = new Padding(3, 0, 3, 0)
+            };
+
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(241, 245, 249);
+            btn.FlatAppearance.MouseDownBackColor = Color.FromArgb(226, 232, 240);
+            return btn;
         }
 
         // ======================================================
@@ -569,7 +756,7 @@ grid.Columns.Add(new DataGridViewTextBoxColumn
             try
             {
                 await LoadCategoriesToComboAsync();
-                await LoadProductsAsync();
+                await LoadProductsPagedAsync(1); // Nạp trang đầu tiên
             }
             finally
             {
@@ -753,6 +940,73 @@ grid.Columns.Add(new DataGridViewTextBoxColumn
             DisplayProducts(productList);
         }
 
+        // Tiêu chí 25: Nạp sản phẩm có chia trang từ Server API
+        private async Task LoadProductsPagedAsync(int page)
+        {
+            PrepareAuthorization();
+            lblStatus.Text = $"Đang tải dữ liệu trang {page}...";
+
+            try
+            {
+                using HttpResponseMessage response =
+                    await ApiClientService.Client.GetAsync($"products/paged?page={page}&pageSize={_pageSize}");
+
+                if (!response.IsSuccessStatusCode)
+                    throw await CreateApiExceptionAsync(response);
+
+                string json = await response.Content.ReadAsStringAsync();
+                using JsonDocument document = JsonDocument.Parse(json);
+                JsonElement root = document.RootElement;
+
+                _currentPage = root.GetProperty("currentPage").GetInt32();
+                _totalPages = root.GetProperty("totalPages").GetInt32();
+                _totalRecords = root.GetProperty("totalRecords").GetInt32();
+                JsonElement data = root.GetProperty("data");
+
+                productList.Clear();
+                foreach (JsonElement item in data.EnumerateArray())
+                {
+                    ProductDto? product = JsonSerializer.Deserialize<ProductDto>(
+                        item.GetRawText(),
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                    if (product != null)
+                    {
+                        // Bóc tách tên danh mục từ JSON (hỗ trợ cả lồng nhau lẫn ở ngoài)
+                        string categoryName = "";
+                        if (TryGetJsonProperty(item, "category", out JsonElement category) &&
+                            category.ValueKind == JsonValueKind.Object)
+                        {
+                            categoryName = ReadString(category, "CategoryName");
+                            if (string.IsNullOrWhiteSpace(categoryName))
+                                categoryName = ReadString(category, "Name");
+                        }
+
+                        if (string.IsNullOrWhiteSpace(categoryName))
+                            categoryName = ReadString(item, "CategoryName");
+
+                        product.CategoryName = categoryName;
+
+                        productList.Add(product);
+                    }
+                }
+
+                DisplayProducts(productList);
+
+                // Cập nhật giao diện phân trang
+                lblPageInfo.Text = $"Trang {_currentPage} / {_totalPages}";
+                btnFirstPage.Enabled = _currentPage > 1;
+                btnPrevPage.Enabled = _currentPage > 1;
+                btnNextPage.Enabled = _currentPage < _totalPages;
+                btnLastPage.Enabled = _currentPage < _totalPages;
+                lblStatus.Text = $"📌 Hiển thị trang {_currentPage}/{_totalPages}  •  Tổng cộng: {_totalRecords} sản phẩm";
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "Lỗi khi tải trang dữ liệu: " + ex.Message;
+            }
+        }
+
 
         // Hien thi danh sach len bang
         private void DisplayProducts(IEnumerable<ProductDto> products)
@@ -772,7 +1026,7 @@ grid.Columns.Add(new DataGridViewTextBoxColumn
 
             try
             {
-                await LoadProductsAsync();
+                await LoadProductsPagedAsync(1);
             }
             catch (Exception ex)
             {

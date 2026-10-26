@@ -28,6 +28,17 @@ namespace MiniSupermarket.WinForms
 
         private Label lblStatus = null!;
 
+        // Phân trang danh mục
+        private int _currentPage = 1;
+        private int _pageSize = 8;
+        private int _totalPages = 1;
+        private int _totalRecords = 0;
+        private Button btnFirstPage = null!;
+        private Button btnPrevPage = null!;
+        private Label lblPageInfo = null!;
+        private Button btnNextPage = null!;
+        private Button btnLastPage = null!;
+
         // Bang mau dung chung cho form
         private readonly Color backgroundColor = Color.FromArgb(244, 246, 250);
         private readonly Color textColor = Color.FromArgb(24, 30, 48);
@@ -178,15 +189,85 @@ namespace MiniSupermarket.WinForms
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
-            // Dong trang thai duoi bang
+            // Footer phân trang chuyên nghiệp
+            TableLayoutPanel footerPanel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 48,
+                ColumnCount = 2,
+                RowCount = 1,
+                BackColor = Color.FromArgb(248, 250, 252),
+                Padding = new Padding(12, 6, 12, 6),
+                Margin = Padding.Empty
+            };
+            footerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            footerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            footerPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
             lblStatus = new Label
             {
                 Text = "Chưa tải dữ liệu",
-                Dock = DockStyle.Bottom,
-                Height = 30,
-                ForeColor = Color.DimGray,
-                TextAlign = ContentAlignment.MiddleLeft
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Regular),
+                ForeColor = mutedColor,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Margin = Padding.Empty
             };
+
+            FlowLayoutPanel paginationPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty
+            };
+
+            btnFirstPage = CreatePageNavButton("⏮ Đầu");
+            btnFirstPage.Click += async (s, e) => { if (_currentPage > 1) await LoadCategoriesPagedAsync(1); };
+
+            btnPrevPage = CreatePageNavButton("◀ Trước");
+            btnPrevPage.Click += async (s, e) => { if (_currentPage > 1) await LoadCategoriesPagedAsync(_currentPage - 1); };
+
+            lblPageInfo = new Label
+            {
+                Text = "Trang 1 / 1",
+                AutoSize = false,
+                Width = 110,
+                Height = 32,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                ForeColor = primaryColor,
+                BackColor = Color.FromArgb(239, 246, 255),
+                Margin = new Padding(4, 0, 4, 0)
+            };
+
+            btnNextPage = CreatePageNavButton("Sau ▶");
+            btnNextPage.Click += async (s, e) => { if (_currentPage < _totalPages) await LoadCategoriesPagedAsync(_currentPage + 1); };
+
+            btnLastPage = CreatePageNavButton("Cuối ⏭");
+            btnLastPage.Click += async (s, e) => { if (_currentPage < _totalPages) await LoadCategoriesPagedAsync(_totalPages); };
+
+            paginationPanel.Controls.Add(btnFirstPage);
+            paginationPanel.Controls.Add(btnPrevPage);
+            paginationPanel.Controls.Add(lblPageInfo);
+            paginationPanel.Controls.Add(btnNextPage);
+            paginationPanel.Controls.Add(btnLastPage);
+
+            footerPanel.Controls.Add(lblStatus, 0, 0);
+            footerPanel.Controls.Add(paginationPanel, 1, 0);
+
+            dgvCategories = CreateGrid();
+            dgvCategories.CellClick += dgvCategories_CellClick;
+
+            card.Controls.Add(dgvCategories); // Fill
+            card.Controls.Add(footerPanel);   // Bottom
+            card.Controls.Add(searchBar);     // Top (duoi tieu de)
+            card.Controls.Add(lblListTitle);  // Top (tren cung)
+
+            return card;
 
             dgvCategories = CreateGrid();
             dgvCategories.CellClick += dgvCategories_CellClick;
@@ -575,7 +656,7 @@ namespace MiniSupermarket.WinForms
         // Khi mo form, tai danh sach nhom hang
         private async void FormCategoryManagement_Load(object? sender, EventArgs e)
         {
-            await LoadDataAsync();
+            await LoadCategoriesPagedAsync(1);
         }
 
         // Tai danh sach nhom hang tu API
@@ -613,7 +694,7 @@ namespace MiniSupermarket.WinForms
             try
             {
                 txtKeyword.Clear();
-                await LoadDataAsync();
+                await LoadCategoriesPagedAsync(1);
             }
             finally
             {
@@ -905,6 +986,72 @@ namespace MiniSupermarket.WinForms
                 "Lỗi",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
+        }
+
+        private Button CreatePageNavButton(string text)
+        {
+            Button btn = new Button
+            {
+                Text = text,
+                Width = 80,
+                Height = 32,
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(51, 65, 85),
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                UseVisualStyleBackColor = false,
+                Margin = new Padding(3, 0, 3, 0)
+            };
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(241, 245, 249);
+            btn.FlatAppearance.MouseDownBackColor = Color.FromArgb(226, 232, 240);
+            return btn;
+        }
+
+        private async Task LoadCategoriesPagedAsync(int page)
+        {
+            if (!PrepareAuthorization()) return;
+            lblStatus.Text = $"Đang tải danh mục trang {page}...";
+
+            try
+            {
+                var response = await ApiClientService.Client.GetAsync($"categories/paged?page={page}&pageSize={_pageSize}");
+                response.EnsureSuccessStatusCode();
+
+                string json = await response.Content.ReadAsStringAsync();
+                using JsonDocument document = JsonDocument.Parse(json);
+                JsonElement root = document.RootElement;
+
+                _currentPage = root.GetProperty("currentPage").GetInt32();
+                _totalPages = root.GetProperty("totalPages").GetInt32();
+                _totalRecords = root.GetProperty("totalRecords").GetInt32();
+                JsonElement data = root.GetProperty("data");
+
+                categoryList.Clear();
+                foreach (JsonElement item in data.EnumerateArray())
+                {
+                    int id = ReadInt(item, "CategoryId");
+                    if (id == 0) id = ReadInt(item, "Id");
+                    string name = ReadString(item, "CategoryName");
+                    string desc = ReadString(item, "Description");
+                    categoryList.Add((id, name, desc));
+                }
+
+                DisplayCategories(categoryList);
+
+                lblPageInfo.Text = $"Trang {_currentPage} / {_totalPages}";
+                btnFirstPage.Enabled = _currentPage > 1;
+                btnPrevPage.Enabled = _currentPage > 1;
+                btnNextPage.Enabled = _currentPage < _totalPages;
+                btnLastPage.Enabled = _currentPage < _totalPages;
+                lblStatus.Text = $"📌 Hiển thị trang {_currentPage}/{_totalPages}  •  Tổng cộng: {_totalRecords} nhóm hàng";
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "Lỗi khi tải danh mục: " + ex.Message;
+            }
         }
     }
 }
