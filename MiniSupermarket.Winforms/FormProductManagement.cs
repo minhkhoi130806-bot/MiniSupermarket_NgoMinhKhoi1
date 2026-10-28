@@ -14,11 +14,12 @@ namespace MiniSupermarket.WinForms
 {
     /// <summary>
     /// Màn hình quản lý danh mục Sản phẩm & Tồn kho trong Siêu thị Mini
-    /// Tích hợp CRUD, phân trang Server-side, cảnh báo tồn kho đỏ, và xuất báo cáo Excel/CSV đẹp mắt
+    /// Tự động thích ứng kích thước (Responsive), không bị mất chữ hay nút bị phóng to bất thường khi thay đổi kích thước cửa sổ.
+    /// Tích hợp đầy đủ: CRUD, phân trang Server-side, cảnh báo tồn kho đỏ, và xuất báo cáo Excel/CSV đẹp mắt.
     /// </summary>
     public partial class FormProductManagement : Form
     {
-        #region Các trường dữ liệu và điều khiển giao diện (Controls)
+        #region 1. Các trường dữ liệu và điều khiển giao diện (Controls)
 
         private DataGridView dgvProducts = null!;
         private TextBox txtId = null!;
@@ -50,7 +51,7 @@ namespace MiniSupermarket.WinForms
         private Button btnNextPage = null!;
         private Button btnLastPage = null!;
 
-        // Bảng màu giao diện chuẩn hiện đại
+        // Bảng màu giao diện chuẩn phẳng (Flat UI Modern)
         private readonly Color backgroundColor = Color.FromArgb(244, 246, 250);
         private readonly Color textColor = Color.FromArgb(24, 30, 48);
         private readonly Color primaryColor = Color.FromArgb(41, 100, 180);
@@ -61,7 +62,7 @@ namespace MiniSupermarket.WinForms
 
         #endregion
 
-        #region Khởi tạo Form và Bố cục Giao diện (Layout)
+        #region 2. Khởi tạo Form và Bố cục Giao diện (Layout)
 
         public FormProductManagement()
         {
@@ -93,7 +94,7 @@ namespace MiniSupermarket.WinForms
                 Padding = Padding.Empty
             };
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 60));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             Controls.Add(root);
 
@@ -111,18 +112,18 @@ namespace MiniSupermarket.WinForms
             };
             root.Controls.Add(lblTitle, 0, 0);
 
-            // Thân form: Danh sách bên trái (co giãn tự do), Thông tin chi tiết bên phải (cố định 310px)
+            // Thân form: Danh sách bên trái (co giãn tự do), Thông tin chi tiết bên phải (gọn gàng 270px)
             TableLayoutPanel body = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
                 RowCount = 1,
                 BackColor = backgroundColor,
-                Padding = new Padding(16),
+                Padding = new Padding(14),
                 Margin = Padding.Empty
             };
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); // Danh sách chiếm toàn bộ không gian còn lại
-            body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 310)); // Chi tiết gọn gàng 310px, nhường chỗ cho danh sách
+            body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270)); // Chi tiết 270px vừa vặn, nhường không gian tối đa cho bảng dữ liệu
             body.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
             root.Controls.Add(body, 0, 1);
@@ -139,7 +140,7 @@ namespace MiniSupermarket.WinForms
             {
                 Dock = DockStyle.Fill,
                 BackColor = Color.White,
-                Padding = new Padding(16),
+                Padding = new Padding(14),
                 Margin = new Padding(0, 0, 8, 0)
             };
 
@@ -147,29 +148,29 @@ namespace MiniSupermarket.WinForms
             {
                 Text = "DANH SÁCH SẢN PHẨM",
                 Dock = DockStyle.Top,
-                Height = 36,
+                Height = 34,
                 Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 ForeColor = textColor,
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
-            // Thanh tìm kiếm và các nút thao tác: Tự động co giãn khi phóng to / thu nhỏ
+            // Thanh tìm kiếm và các nút thao tác: Tự động co giãn theo tỷ lệ DPI (LogicalToDeviceUnits)
             TableLayoutPanel searchBar = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
-                Height = 36,
+                Height = LogicalToDeviceUnits(36),
                 ColumnCount = 4,
                 RowCount = 1,
                 Padding = new Padding(0, 2, 0, 2),
                 Margin = Padding.Empty
             };
 
-            // Cột 0: Ô tìm kiếm (co giãn tự do chiếm trọn không gian trống)
-            // Cột 1, 2, 3: Các nút nhỏ gọn vừa vặn, không bị đè lên ô tìm kiếm
+            // Cột 0: Ô tìm kiếm (co giãn tự do chiếm trọn phần không gian còn lại)
+            // Cột 1, 2, 3: Các nút có kích thước nhân theo tỷ lệ DPI để chữ không bao giờ bị cắt
             searchBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            searchBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 62));  // Nút [TÌM]
-            searchBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 72));  // Nút [TẢI LẠI]
-            searchBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 118)); // Nút [XUẤT BÁO CÁO]
+            searchBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, LogicalToDeviceUnits(54)));  // Nút [TÌM]
+            searchBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, LogicalToDeviceUnits(76)));  // Nút [TẢI LẠI] - đủ chỗ hiển thị chữ "TẢI LẠI"
+            searchBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, LogicalToDeviceUnits(124))); // Nút [XUẤT BÁO CÁO] - đủ chỗ hiển thị chữ "XUẤT BÁO CÁO"
             searchBar.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
             // Ô nhập từ khóa tìm kiếm
@@ -180,7 +181,7 @@ namespace MiniSupermarket.WinForms
                 PlaceholderText = "Tìm tên hoặc mã vạch...",
                 BorderStyle = BorderStyle.FixedSingle,
                 Margin = Padding.Empty,
-                MinimumSize = new Size(110, 26) // Luôn hiển thị, không bị bóp nghẽn khi thu nhỏ màn hình
+                MinimumSize = new Size(100, 26) // Đảm bảo luôn hiển thị khi thu nhỏ cửa sổ
             };
 
             txtKeyword.KeyDown += (s, e) =>
@@ -194,20 +195,17 @@ namespace MiniSupermarket.WinForms
 
             // Nút TÌM (màu xanh dương)
             btnSearch = CreateActionButton("TÌM", primaryColor);
-            btnSearch.Margin = new Padding(4, 0, 0, 0);
-            btnSearch.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            btnSearch.Margin = new Padding(3, 0, 0, 0);
             btnSearch.Click += btnSearch_Click;
 
             // Nút TẢI LẠI (màu xám xanh)
             btnLoad = CreateActionButton("TẢI LẠI", mutedColor);
-            btnLoad.Margin = new Padding(4, 0, 0, 0);
-            btnLoad.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            btnLoad.Margin = new Padding(3, 0, 0, 0);
             btnLoad.Click += btnLoad_Click;
 
             // Nút XUẤT BÁO CÁO (màu xanh lá chuẩn Excel)
             Button btnExport = CreateActionButton("XUẤT BÁO CÁO", Color.FromArgb(22, 163, 74));
-            btnExport.Margin = new Padding(4, 0, 0, 0);
-            btnExport.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            btnExport.Margin = new Padding(3, 0, 0, 0);
             btnExport.Click += (s, e) => ExportProductsReport();
 
             searchBar.Controls.Add(txtKeyword, 0, 0);
@@ -223,11 +221,11 @@ namespace MiniSupermarket.WinForms
             TableLayoutPanel footerPanel = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
-                Height = 44,
+                Height = LogicalToDeviceUnits(40),
                 ColumnCount = 2,
                 RowCount = 1,
                 BackColor = Color.FromArgb(248, 250, 252),
-                Padding = new Padding(8, 4, 8, 4),
+                Padding = new Padding(6, 2, 6, 2),
                 Margin = Padding.Empty
             };
             footerPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); // Dòng thông báo trạng thái bên trái
@@ -272,18 +270,18 @@ namespace MiniSupermarket.WinForms
                     await LoadProductsPagedAsync(_currentPage - 1);
             };
 
-            // Nhãn hiển thị số trang
+            // Nhãn hiển thị số trang: Tự động co giãn AutoSize = true để không bao giờ bị cắt chữ "Trang 1 / 2"
             lblPageInfo = new Label
             {
                 Text = "Trang 1 / 1",
-                AutoSize = false,
-                Width = 90,
-                Height = 30,
+                AutoSize = true,
+                Height = LogicalToDeviceUnits(28),
                 TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
                 ForeColor = primaryColor,
                 BackColor = Color.FromArgb(239, 246, 255),
-                Margin = new Padding(3, 0, 3, 0)
+                Margin = new Padding(3, 1, 3, 1),
+                Padding = new Padding(8, 4, 8, 4)
             };
 
             // Nút trang kế
@@ -347,7 +345,7 @@ namespace MiniSupermarket.WinForms
                 DataPropertyName = "ProductId",
                 HeaderText = "Mã",
                 FillWeight = 10,
-                MinimumWidth = 45
+                MinimumWidth = 40
             });
 
             grid.Columns.Add(new DataGridViewTextBoxColumn
@@ -355,8 +353,8 @@ namespace MiniSupermarket.WinForms
                 Name = "Barcode",
                 DataPropertyName = "Barcode",
                 HeaderText = "Mã vạch",
-                FillWeight = 20,
-                MinimumWidth = 90
+                FillWeight = 18,
+                MinimumWidth = 80
             });
 
             grid.Columns.Add(new DataGridViewTextBoxColumn
@@ -364,8 +362,8 @@ namespace MiniSupermarket.WinForms
                 Name = "ProductName",
                 DataPropertyName = "ProductName",
                 HeaderText = "Tên sản phẩm",
-                FillWeight = 35,
-                MinimumWidth = 140
+                FillWeight = 32,
+                MinimumWidth = 120
             });
 
             grid.Columns.Add(new DataGridViewTextBoxColumn
@@ -374,7 +372,7 @@ namespace MiniSupermarket.WinForms
                 DataPropertyName = "CategoryId",
                 HeaderText = "Mã danh mục",
                 FillWeight = 12,
-                MinimumWidth = 60
+                MinimumWidth = 50
             });
 
             grid.Columns.Add(new DataGridViewTextBoxColumn
@@ -382,8 +380,8 @@ namespace MiniSupermarket.WinForms
                 Name = "CategoryName",
                 DataPropertyName = "CategoryName",
                 HeaderText = "Danh mục",
-                FillWeight = 20,
-                MinimumWidth = 95
+                FillWeight = 18,
+                MinimumWidth = 85
             });
 
             grid.Columns.Add(new DataGridViewTextBoxColumn
@@ -391,8 +389,8 @@ namespace MiniSupermarket.WinForms
                 Name = "Price",
                 DataPropertyName = "Price",
                 HeaderText = "Giá bán (VNĐ)",
-                FillWeight = 18,
-                MinimumWidth = 95,
+                FillWeight = 16,
+                MinimumWidth = 85,
                 DefaultCellStyle = new DataGridViewCellStyle
                 {
                     Alignment = DataGridViewContentAlignment.MiddleRight,
@@ -405,8 +403,8 @@ namespace MiniSupermarket.WinForms
                 Name = "StockQuantity",
                 DataPropertyName = "StockQuantity",
                 HeaderText = "Tồn kho",
-                FillWeight = 15,
-                MinimumWidth = 70,
+                FillWeight = 12,
+                MinimumWidth = 60,
                 DefaultCellStyle = new DataGridViewCellStyle
                 {
                     Alignment = DataGridViewContentAlignment.MiddleCenter
@@ -415,9 +413,9 @@ namespace MiniSupermarket.WinForms
 
             grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
-            grid.ColumnHeadersHeight = 38;
-            grid.RowTemplate.Height = 36;
-            grid.RowTemplate.MinimumHeight = 32;
+            grid.ColumnHeadersHeight = 36;
+            grid.RowTemplate.Height = 34;
+            grid.RowTemplate.MinimumHeight = 30;
 
             grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(31, 45, 65);
             grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
@@ -502,7 +500,8 @@ namespace MiniSupermarket.WinForms
         }
 
         /// <summary>
-        /// Khối thẻ thông tin chi tiết sản phẩm và các nút chức năng CRUD bên phải
+        /// Khối thẻ thông tin chi tiết sản phẩm và các nút chức năng CRUD bên phải.
+        /// Thiết kế cố định chiều cao nút thao tác, có hàng đệm co giãn để khi phóng to toàn màn hình các nút KHÔNG bị kéo giãn to bất thường.
         /// </summary>
         private Control BuildDetailCard()
         {
@@ -510,34 +509,40 @@ namespace MiniSupermarket.WinForms
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
-                RowCount = 12,
+                RowCount = 13,
                 BackColor = Color.White,
-                Padding = new Padding(16),
-                Margin = new Padding(8, 0, 0, 0)
+                Padding = new Padding(14),
+                Margin = new Padding(6, 0, 0, 0)
             };
 
             card.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-            card.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            card.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            card.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-            card.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            card.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-            card.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            card.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-            card.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            card.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-            card.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            card.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+            // Các hàng nhập liệu: Chiều cao vừa vặn chuẩn chỉnh
+            card.RowStyles.Add(new RowStyle(SizeType.AutoSize));    // 0: Tiêu đề THÔNG TIN CHI TIẾT
+            card.RowStyles.Add(new RowStyle(SizeType.AutoSize));    // 1: Mã vạch Label
+            card.RowStyles.Add(new RowStyle(SizeType.Absolute, 30)); // 2: txtBarcode
+            card.RowStyles.Add(new RowStyle(SizeType.AutoSize));    // 3: Tên sản phẩm Label
+            card.RowStyles.Add(new RowStyle(SizeType.Absolute, 30)); // 4: txtProductName
+            card.RowStyles.Add(new RowStyle(SizeType.AutoSize));    // 5: Nhóm hàng Label
+            card.RowStyles.Add(new RowStyle(SizeType.Absolute, 30)); // 6: cboCategory
+            card.RowStyles.Add(new RowStyle(SizeType.AutoSize));    // 7: Đơn giá Label
+            card.RowStyles.Add(new RowStyle(SizeType.Absolute, 30)); // 8: nudPrice
+            card.RowStyles.Add(new RowStyle(SizeType.AutoSize));    // 9: Số lượng tồn kho Label
+            card.RowStyles.Add(new RowStyle(SizeType.Absolute, 30)); // 10: nudStock
+            
+            // Hàng 11: Cụm 4 nút CRUD có chiều cao CỐ ĐỊNH 84px (ngăn chặn nút bị to khổng lồ khi phóng to cửa sổ)
+            card.RowStyles.Add(new RowStyle(SizeType.Absolute, 84)); 
+            
+            // Hàng 12: Hàng trống co giãn (Percent 100%) hấp thụ toàn bộ khoảng trống thừa khi phóng to cửa sổ
             card.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
             Label lblFormTitle = new Label
             {
                 Text = "THÔNG TIN CHI TIẾT",
                 AutoSize = true,
-                Font = new Font("Segoe UI", 11.5F, FontStyle.Bold),
+                Font = new Font("Segoe UI", 11F, FontStyle.Bold),
                 ForeColor = textColor,
-                Margin = new Padding(0, 0, 0, 6)
+                Margin = new Padding(0, 0, 0, 4)
             };
 
             txtId = new TextBox { Visible = false };
@@ -610,12 +615,13 @@ namespace MiniSupermarket.WinForms
                 AutoSize = true,
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(55, 65, 81),
-                Margin = new Padding(0, 8, 0, 3)
+                Margin = new Padding(0, 6, 0, 2)
             };
         }
 
         /// <summary>
         /// Lưới 4 nút thao tác CRUD 2 cột x 2 hàng: [THÊM MỚI] [CẬP NHẬT] [XÓA] [LÀM MỚI]
+        /// Chiều cao mỗi nút được cố định chuẩn 36px, không bao giờ bị kéo giãn bất thường.
         /// </summary>
         private TableLayoutPanel BuildButtonGrid()
         {
@@ -624,30 +630,30 @@ namespace MiniSupermarket.WinForms
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
                 RowCount = 2,
-                Margin = new Padding(0, 10, 0, 0),
+                Margin = new Padding(0, 8, 0, 0),
                 Padding = Padding.Empty
             };
 
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
-            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 36)); // Chiều cao cố định hàng 1: 36px
+            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 36)); // Chiều cao cố định hàng 2: 36px
 
             btnAdd = CreateActionButton("THÊM MỚI", Color.FromArgb(40, 167, 69));
-            btnAdd.Margin = new Padding(0, 0, 3, 3);
+            btnAdd.Margin = new Padding(0, 0, 2, 2);
             btnAdd.Click += btnAdd_Click;
 
             btnUpdate = CreateActionButton("CẬP NHẬT", Color.FromArgb(23, 162, 184));
-            btnUpdate.Margin = new Padding(3, 0, 0, 3);
+            btnUpdate.Margin = new Padding(2, 0, 0, 2);
             btnUpdate.Click += btnUpdate_Click;
 
             // Nút "XÓA" ngắn gọn, không bị cắt chữ
             btnDelete = CreateActionButton("XÓA", Color.FromArgb(220, 53, 69));
-            btnDelete.Margin = new Padding(0, 3, 3, 0);
+            btnDelete.Margin = new Padding(0, 2, 2, 0);
             btnDelete.Click += btnDelete_Click;
 
             btnClear = CreateActionButton("LÀM MỚI", mutedColor);
-            btnClear.Margin = new Padding(3, 3, 0, 0);
+            btnClear.Margin = new Padding(2, 2, 0, 0);
             btnClear.Click += (s, e) => ClearInputs();
 
             grid.Controls.Add(btnAdd, 0, 0);
@@ -688,15 +694,15 @@ namespace MiniSupermarket.WinForms
             Button btn = new Button
             {
                 Text = text,
-                Width = 40,
-                Height = 30,
+                Width = LogicalToDeviceUnits(34),
+                Height = LogicalToDeviceUnits(28),
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(51, 65, 85),
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
                 Cursor = Cursors.Hand,
                 UseVisualStyleBackColor = false,
-                Margin = new Padding(2, 0, 2, 0),
+                Margin = new Padding(2, 1, 2, 1),
                 TextAlign = ContentAlignment.MiddleCenter
             };
             btn.FlatAppearance.BorderSize = 1;
@@ -708,7 +714,7 @@ namespace MiniSupermarket.WinForms
 
         #endregion
 
-        #region Xử lý Dữ liệu và Gọi API Backend
+        #region 3. Xử lý Dữ liệu và Gọi API Backend
 
         /// <summary>
         /// Gắn mã thông hành Bearer JWT Token vào Header của yêu cầu HTTP
