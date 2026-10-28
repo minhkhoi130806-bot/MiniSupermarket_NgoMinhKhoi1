@@ -163,7 +163,7 @@ namespace MiniSupermarket.WinForms
             btn30 = MakeButton("30 ngày", mutedColor, 90);
             btnMonth = MakeButton("Tháng này", mutedColor, 100);
             btnView = MakeButton("XEM BÁO CÁO", primaryColor, 130);
-            btnExport = MakeButton("XUẤT CSV", successColor, 110);
+            btnExport = MakeButton("XUẤT BÁO CÁO", successColor, 130);
 
             btnToday.Click += async (s, e) => await QuickRange(DateTime.Today, DateTime.Today);
             btn7.Click += async (s, e) => await QuickRange(DateTime.Today.AddDays(-6), DateTime.Today);
@@ -171,7 +171,7 @@ namespace MiniSupermarket.WinForms
             btnMonth.Click += async (s, e) =>
                 await QuickRange(new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1), DateTime.Today);
             btnView.Click += async (s, e) => await LoadReportAsync();
-            btnExport.Click += (s, e) => ExportCsv();
+            btnExport.Click += (s, e) => ExportReport();
 
             bar.Controls.Add(Cap("Từ ngày"));
             bar.Controls.Add(dtpFrom);
@@ -577,52 +577,48 @@ namespace MiniSupermarket.WinForms
         }
 
         // ======================================================
-        // XUAT CSV
+        // TIÊU CHÍ 48: XUẤT BÁO CÁO EXCEL (.XLSX) HOẶC CSV (.CSV)
         // ======================================================
-        private void ExportCsv()
+        private void ExportReport()
         {
             if (_data == null || _data.Orders.Count == 0)
             {
-                MessageBox.Show("Chưa có dữ liệu để xuất. Hãy bấm XEM BÁO CÁO trước.", "Thông báo",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(
+                    "Chưa có dữ liệu để xuất. Hãy bấm XEM BÁO CÁO trước.",
+                    "Thông báo",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
                 return;
             }
 
             using var dlg = new SaveFileDialog
             {
-                Filter = "CSV (*.csv)|*.csv",
-                FileName = $"BaoCaoDoanhThu_{dtpFrom.Value:yyyyMMdd}_{dtpTo.Value:yyyyMMdd}.csv"
+                Filter = "Tệp Excel (*.xlsx)|*.xlsx|Tệp CSV (*.csv)|*.csv",
+                FileName = $"BaoCaoDoanhThu_{dtpFrom.Value:yyyyMMdd}_{dtpTo.Value:yyyyMMdd}.xlsx",
+                DefaultExt = "xlsx",
+                AddExtension = true
             };
             if (dlg.ShowDialog(this) != DialogResult.OK) return;
 
             try
             {
-                static string Esc(string? t) => "\"" + (t ?? "").Replace("\"", "\"\"") + "\"";
+                string cashier = SessionManager.CurrentUsername ?? "admin";
+                ExcelExportHelper.ExportRevenue(dlg.FileName, _data, dtpFrom.Value.Date, dtpTo.Value.Date, cashier);
 
-                var sb = new StringBuilder();
-                sb.AppendLine("Mã đơn,Thời gian,Thu ngân,Khách hàng,Thanh toán,Giảm giá,Thành tiền");
-                foreach (var o in _data.Orders)
+                var answer = MessageBox.Show(
+                    $"Xuất báo cáo doanh thu thành công!\n\nĐường dẫn: {dlg.FileName}\n\nBạn có muốn mở file ngay không?",
+                    "Xuất báo cáo thành công",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Information);
+
+                if (answer == DialogResult.Yes)
                 {
-                    sb.AppendLine(string.Join(",",
-                        Esc(o.OrderCode),
-                        Esc(o.CreatedAt.ToString("dd/MM/yyyy HH:mm")),
-                        Esc(o.CashierUsername),
-                        Esc(string.IsNullOrWhiteSpace(o.CustomerName) ? "Khách vãng lai" : o.CustomerName),
-                        Esc(MethodText(o.PaymentMethod)),
-                        o.DiscountAmount.ToString("0"),
-                        o.FinalAmount.ToString("0")));
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dlg.FileName) { UseShellExecute = true });
                 }
-                sb.AppendLine();
-                sb.AppendLine($"Tổng doanh thu,{_data.Summary.TotalRevenue:0}");
-                sb.AppendLine($"Số đơn,{_data.Summary.TotalOrders}");
-
-                File.WriteAllText(dlg.FileName, sb.ToString(), new UTF8Encoding(true));
-                MessageBox.Show("Đã xuất báo cáo thành công!", "Thông báo",
-                    MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Không thể ghi file:\n" + ex.Message, "Lỗi",
+                MessageBox.Show("Không thể xuất file:\n" + ex.Message, "Lỗi",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }

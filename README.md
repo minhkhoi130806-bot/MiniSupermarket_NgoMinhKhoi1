@@ -19,7 +19,7 @@ Dự án được thiết kế và triển khai chuẩn mực theo mô hình ki�
   - Ứng dụng máy trạm Windows Forms được thiết kế theo mô hình **Single-Form Shell Architecture (`FormMainShell`)**.
   - Nhúng động các màn hình nghiệp vụ con (`TopLevel = false`, `Dock = Fill`) giúp ứng dụng chuyển đổi mượt mà, không giật lag.
   - Giao tiếp máy chủ tập trung thông qua `ApiClientService` (`HttpClient`), tự động đính kèm `Bearer Token` vào Header của mọi request.
-  - Giao diện người dùng hiện đại: Điều hướng phân quyền động, phân trang lưới dữ liệu, quầy tính tiền POS thông minh, cảnh báo tồn kho đỏ, biểu đồ cột thống kê doanh thu và xuất báo cáo CSV.
+  - Giao diện người dùng hiện đại: Điều hướng phân quyền động, phân trang lưới dữ liệu, quầy tính tiền POS thông minh, cảnh báo tồn kho đỏ, biểu đồ cột thống kê doanh thu và xuất báo cáo đa định dạng (Excel .xlsx & CSV .csv).
 
 * **Hệ quản trị CSDL Microsoft SQL Server:**
   - Cơ sở dữ liệu quan hệ được sinh tự động thông qua **EF Core Migrations**.
@@ -39,7 +39,7 @@ Dự án được thiết kế và triển khai chuẩn mực theo mô hình ki�
   - Giao dịch an toàn (**Transaction Scope**: Cam kết trừ kho và điểm thưởng đồng thời, tự động Rollback khi lỗi)
 * **Frontend Framework:** Windows Forms (.NET Desktop Application)
 * **Giao tiếp API:** `System.Net.Http`, `System.Net.Http.Json`, `System.Text.Json`
-* **Xử lý giao diện & Báo cáo:** DataGridView Auto-Formatting, Phân trang LINQ `.Skip().Take()`, Biểu đồ cột `RevenueBarChart`, Xuất báo cáo CSV UTF-8
+* **Xử lý giao diện & Báo cáo:** DataGridView Auto-Formatting, Phân trang LINQ `.Skip().Take()`, Biểu đồ cột `RevenueBarChart`, Xuất báo cáo đa định dạng Excel `.xlsx` (OpenXML) & CSV `.csv` (UTF-8 BOM) tự động tạo kiểu đẹp mắt.
 * **Công cụ phát triển & Kiểm thử:** Visual Studio 2022, Swagger UI (tích hợp Authorization Bearer), Git & GitHub
 
 ---
@@ -116,7 +116,9 @@ Hệ thống đã triển khai hoàn tất **100% các tiêu chí kỹ thuật**
 - [x] **Quầy thu ngân POS thông minh:** Hỗ trợ nhập mã vạch, tự động tính tổng tiền, tính tiền thừa và in phiếu thanh toán chi tiết.
 - [x] **Đổi điểm thưởng trừ tiền hóa đơn (Loyalty Points):** Khách hàng thân thiết có thể sử dụng điểm tích lũy (phím tắt `F11` hoặc bấm vào tên khách) để trừ trực tiếp vào hóa đơn và cập nhật ngay vào CSDL.
 - [x] **Dashboard KPI & Biểu đồ cột Doanh thu:** Hiển thị 4 thẻ chỉ số KPI tổng quan, biểu đồ cột tăng trưởng doanh thu (`RevenueBarChart`) và thống kê Top 5 sản phẩm bán chạy nhất (`Best-Sellers`).
-- [x] **Xuất báo cáo CSV:** Bổ sung tính năng xuất toàn bộ danh mục mặt hàng kèm số lượng tồn kho ra file `.csv` chuẩn mã hóa UTF-8.
+- [x] **Xuất báo cáo đa định dạng Excel (.xlsx) & CSV (.csv) tự động trình bày đẹp:**
+  - *Báo cáo Sản phẩm & Tồn kho (`FormProductManagement`):* Xuất toàn bộ danh sách kèm số lượng tồn, giá bán; tự động định dạng bảng tiêu đề xanh lá đậm, dòng xen kẽ (zebra), viền bảng, định dạng tiền tệ `#,##0 VNĐ`, bôi màu đỏ cảnh báo các mặt hàng sắp hết/hết hàng (`<= 10`), dòng tổng kết cộng dồn số lượng và giá trị kho.
+  - *Báo cáo Doanh thu & Đơn hàng (`FormQuickReport`):* Xuất theo khoảng thời gian tùy chọn với 4 thẻ tóm tắt KPI màu sắc nét, bảng chi tiết từng đơn hàng, tự động định dạng số tiền, ngày giờ và hỏi mở file ngay sau khi xuất. Hỗ trợ cả `.xlsx` (OpenXML chuẩn) và `.csv` (UTF-8 có BOM chống lỗi font tiếng Việt trong Excel).
 
 ---
 

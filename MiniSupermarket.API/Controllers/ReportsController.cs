@@ -194,9 +194,12 @@ namespace MiniSupermarket.API.Controllers
         // Tiêu chí 34 & 45: Gọi Stored Procedure trên SQL Server bằng ADO.NET CommandType.StoredProcedure
         // gom nhóm GROUP BY CAST(CreatedAt AS DATE) để tính doanh thu theo ngày
         [HttpGet("sp-revenue")]
-        public async Task<IActionResult> GetRevenueByStoredProcedure([FromQuery] DateTime from, [FromQuery] DateTime to)
+        public async Task<IActionResult> GetRevenueByStoredProcedure([FromQuery] DateTime? from, [FromQuery] DateTime? to)
         {
-            if (to.Date < from.Date)
+            var toDate = to ?? DateTime.Today;
+            var fromDate = from ?? toDate.AddDays(-30);
+
+            if (toDate.Date < fromDate.Date)
                 return BadRequest(new { message = "Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu." });
 
             // 1. Tự động kiểm tra và tạo Stored Procedure trên SQL Server nếu chưa tồn tại
@@ -238,8 +241,8 @@ namespace MiniSupermarket.API.Controllers
                 CommandType = CommandType.StoredProcedure
             };
 
-            cmd.Parameters.Add(new SqlParameter("@FromDate", SqlDbType.Date) { Value = from.Date });
-            cmd.Parameters.Add(new SqlParameter("@ToDate", SqlDbType.Date) { Value = to.Date });
+            cmd.Parameters.Add(new SqlParameter("@FromDate", SqlDbType.Date) { Value = fromDate.Date });
+            cmd.Parameters.Add(new SqlParameter("@ToDate", SqlDbType.Date) { Value = toDate.Date });
 
             await using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
