@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MiniSupermarket.API.Data;
@@ -17,7 +17,11 @@ namespace MiniSupermarket.API.Controllers
 
         public ReportsController(SupermarketDbContext context) => _context = context;
 
+        // =========================================================================
         // GET /api/reports/revenue?from=2026-10-01&to=2026-10-22
+        // Báo cáo doanh thu toàn diện: tóm tắt KPI, biểu đồ cột theo ngày,
+        // biểu đồ tròn theo danh mục (yêu cầu của Thầy), top sản phẩm bán chạy.
+        // =========================================================================
         [HttpGet("revenue")]
         public async Task<IActionResult> Revenue([FromQuery] DateTime from, [FromQuery] DateTime to)
         {
@@ -42,7 +46,7 @@ namespace MiniSupermarket.API.Controllers
                 .Where(c => customerIds.Contains(c.CustomerId))
                 .ToDictionaryAsync(c => c.CustomerId, c => c.CustomerName);
 
-            // Toàn bộ chi tiết đơn (để tính lại tiền khi cột tổng bị trống)
+            // Toàn bộ chi tiết đơn
             var lines = await _context.OrderItems.AsNoTracking()
                 .Where(i => orderIds.Contains(i.OrderId))
                 .Select(i => new { i.OrderId, i.ProductId, i.Quantity, i.LineTotal, i.UnitPrice })
@@ -52,8 +56,7 @@ namespace MiniSupermarket.API.Controllers
                 .GroupBy(l => l.OrderId)
                 .ToDictionary(g => g.Key, g => g.Sum(l => l.LineTotal > 0 ? l.LineTotal : l.UnitPrice * l.Quantity));
 
-            // Thành tiền thực của đơn: ưu tiên FinalAmount, thiếu thì lấy TotalAmount - giảm giá,
-            // vẫn thiếu thì cộng từ chi tiết đơn.
+            // Thành tiền thực của đơn: ưu tiên FinalAmount, thiếu thì lấy TotalAmount - giảm giá
             decimal FinalOf(Order o)
             {
                 if (o.FinalAmount > 0) return o.FinalAmount;
@@ -61,16 +64,40 @@ namespace MiniSupermarket.API.Controllers
                 return lineSums.TryGetValue(o.OrderId, out var s) ? Math.Max(0, s - o.DiscountAmount) : 0;
             }
 
-            // Tên sản phẩm cho Top bán chạy
+            // Lấy thông tin sản phẩm kèm danh mục (Category) để vẽ Biểu đồ tròn
             var productIds = lines.Select(l => l.ProductId).Distinct().ToList();
-            var productNames = await _context.Products.AsNoTracking()
+            var productsInfo = await _context.Products.AsNoTracking()
+                .Include(p => p.Category)
                 .Where(p => productIds.Contains(p.ProductId))
-                .ToDictionaryAsync(p => p.ProductId, p => p.ProductName);
+                .Select(p => new 
+                { 
+                    p.ProductId, 
+                    p.ProductName, 
+                    CategoryName = p.Category != null ? p.Category.CategoryName : "Khác" 
+                })
+                .ToListAsync();
+
+            var productNames = productsInfo.ToDictionary(p => p.ProductId, p => p.ProductName);
+            var productCategoryMap = productsInfo.ToDictionary(p => p.ProductId, p => p.CategoryName);
 
             bool IsCash(string? m) => string.Equals(m, "CASH", StringComparison.OrdinalIgnoreCase);
 
             decimal totalRevenue = orders.Sum(FinalOf);
             int totalOrders = orders.Count;
+
+            // =====================================================================
+            // TIÊU CHÍ 44: Thống kê tức thì số lượng khách hàng & tồn kho thấp
+            // =====================================================================
+            int totalCustomers = await _context.Customers.AsNoTracking().CountAsync();
+            int lowStockCount = await _context.Products.AsNoTracking().CountAsync(p => p.StockQuantity <= 10);
+
+            var today = DateTime.Today;
+            var tomorrow = today.AddDays(1);
+            decimal todayRevenue = await _context.Orders.AsNoTracking()
+                .Where(o => o.CreatedAt >= today && o.CreatedAt < tomorrow && o.Status != "Cancelled")
+                .SumAsync(o => (decimal?)o.FinalAmount) ?? 0m;
+            int todayOrders = await _context.Orders.AsNoTracking()
+                .CountAsync(o => o.CreatedAt >= today && o.CreatedAt < tomorrow && o.Status != "Cancelled");
 
             var summary = new
             {
@@ -80,15 +107,23 @@ namespace MiniSupermarket.API.Controllers
                 AverageOrderValue = totalOrders == 0 ? 0 : Math.Round(totalRevenue / totalOrders),
                 TotalDiscount = orders.Sum(o => o.DiscountAmount),
                 CashRevenue = orders.Where(o => IsCash(o.PaymentMethod)).Sum(FinalOf),
-                TransferRevenue = orders.Where(o => !IsCash(o.PaymentMethod)).Sum(FinalOf)
+                TransferRevenue = orders.Where(o => !IsCash(o.PaymentMethod)).Sum(FinalOf),
+
+                // TIÊU CHÍ 44: Các chỉ số Dashboard KPI Summary Cards
+                TotalCustomers = totalCustomers,
+                LowStockCount = lowStockCount,
+                TodayRevenue = todayRevenue,
+                TodayOrders = todayOrders
             };
 
+            // Dữ liệu cho Biểu đồ cột Doanh thu theo ngày (Tiêu chí 45)
             var daily = orders
                 .GroupBy(o => o.CreatedAt.Date)
                 .OrderBy(g => g.Key)
                 .Select(g => new { Date = g.Key, Revenue = g.Sum(FinalOf), Orders = g.Count() })
                 .ToList();
 
+            // Dữ liệu Top sản phẩm bán chạy nhất (Tiêu chí 46)
             var topProducts = lines
                 .GroupBy(l => l.ProductId)
                 .Select(g => new
@@ -101,6 +136,21 @@ namespace MiniSupermarket.API.Controllers
                 .Take(10)
                 .ToList();
 
+            // =====================================================================
+            // YÊU CẦU CỦA THẦY: Cơ cấu Doanh thu theo Nhóm hàng cho Biểu đồ tròn (Pie Chart)
+            // =====================================================================
+            var categoryShares = lines
+                .GroupBy(l => productCategoryMap.TryGetValue(l.ProductId, out var cName) ? cName : "Khác")
+                .Select(g => new
+                {
+                    CategoryName = g.Key,
+                    Revenue = g.Sum(x => x.LineTotal > 0 ? x.LineTotal : x.UnitPrice * x.Quantity),
+                    Quantity = g.Sum(x => x.Quantity)
+                })
+                .OrderByDescending(x => x.Revenue)
+                .ToList();
+
+            // Danh sách đơn hàng (giữ lại ở API để đảm bảo tính đầy đủ)
             var orderRows = orders.Select(o => new
             {
                 o.OrderCode,
@@ -112,11 +162,24 @@ namespace MiniSupermarket.API.Controllers
                 FinalAmount = FinalOf(o)
             }).ToList();
 
-            return Ok(new { summary, daily, topProducts, orders = orderRows });
+            return Ok(new 
+            { 
+                summary, 
+                daily, 
+                topProducts, 
+                categoryShares, 
+                orders = orderRows 
+            });
         }
 
+        // =========================================================================
         // GET: api/reports/dashboard-summary
         // Tiêu chí 44: Thống kê tức thì 4 chỉ số KPI quan trọng cho Dashboard
+        // 1. Doanh thu hôm nay (VNĐ)
+        // 2. Tổng số hóa đơn đã xuất
+        // 3. Số lượng khách hàng mới đăng ký
+        // 4. Số mặt hàng sắp hết hàng (tồn kho <= 10)
+        // =========================================================================
         [HttpGet("dashboard-summary")]
         public async Task<IActionResult> GetDashboardSummary()
         {
@@ -153,9 +216,11 @@ namespace MiniSupermarket.API.Controllers
             });
         }
 
+        // =========================================================================
         // GET: api/reports/top-best-sellers
         // Tiêu chí 46: Thống kê Top 5 mặt hàng tiêu thụ nhanh nhất
         // Kỹ thuật LINQ: GroupBy(od => od.ProductId) -> OrderByDescending(Sum Quantity) -> Take(5)
+        // =========================================================================
         [HttpGet("top-best-sellers")]
         public async Task<IActionResult> GetTopBestSellers()
         {
@@ -190,9 +255,11 @@ namespace MiniSupermarket.API.Controllers
             return Ok(result);
         }
 
+        // =========================================================================
         // GET: api/reports/sp-revenue?from=2026-09-01&to=2026-10-31
         // Tiêu chí 34 & 45: Gọi Stored Procedure trên SQL Server bằng ADO.NET CommandType.StoredProcedure
         // gom nhóm GROUP BY CAST(CreatedAt AS DATE) để tính doanh thu theo ngày
+        // =========================================================================
         [HttpGet("sp-revenue")]
         public async Task<IActionResult> GetRevenueByStoredProcedure([FromQuery] DateTime? from, [FromQuery] DateTime? to)
         {
@@ -203,7 +270,6 @@ namespace MiniSupermarket.API.Controllers
                 return BadRequest(new { message = "Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu." });
 
             // 1. Tự động kiểm tra và tạo Stored Procedure trên SQL Server nếu chưa tồn tại
-            // (Giúp Thầy chấm bài hay bạn chạy thử đều tự động có thủ tục trong CSDL, không bao giờ bị lỗi)
             string createSpSql = @"
                 IF NOT EXISTS (SELECT * FROM sys.objects WHERE type = 'P' AND name = 'sp_GetDailyRevenue')
                 BEGIN

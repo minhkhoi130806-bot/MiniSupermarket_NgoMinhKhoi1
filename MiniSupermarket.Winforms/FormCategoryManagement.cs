@@ -269,19 +269,6 @@ namespace MiniSupermarket.WinForms
             card.Controls.Add(lblListTitle);  // Top (tren cung)
 
             return card;
-
-            dgvCategories = CreateGrid();
-            dgvCategories.CellClick += dgvCategories_CellClick;
-
-            // THU TU ADD QUAN TRONG khi dung Dock:
-            // control Fill add TRUOC, control Top/Bottom add SAU
-            // (control add sau se duoc dock truoc)
-            card.Controls.Add(dgvCategories); // Fill
-            card.Controls.Add(lblStatus);     // Bottom
-            card.Controls.Add(searchBar);     // Top (nam duoi tieu de)
-            card.Controls.Add(lblListTitle);  // Top (tren cung)
-
-            return card;
         }
 
         // Bang danh sach nhom hang
@@ -757,7 +744,7 @@ namespace MiniSupermarket.WinForms
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
 
-                    await LoadDataAsync();
+                    await LoadCategoriesPagedAsync(_currentPage);
                     ClearInputs();
                 }
                 else
@@ -825,7 +812,7 @@ namespace MiniSupermarket.WinForms
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
 
-                    await LoadDataAsync();
+                    await LoadCategoriesPagedAsync(_currentPage);
                     ClearInputs();
                 }
                 else
@@ -883,7 +870,7 @@ namespace MiniSupermarket.WinForms
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
 
-                    await LoadDataAsync();
+                    await LoadCategoriesPagedAsync(_currentPage);
                     ClearInputs();
                 }
                 else
@@ -904,38 +891,10 @@ namespace MiniSupermarket.WinForms
         // Tim kiem nhom hang theo ten
         private async void btnSearch_Click(object? sender, EventArgs e)
         {
-            string keyword = txtKeyword.Text.Trim();
-
             SetBusy(true);
-
             try
             {
-                // Chua co du lieu thi tai tu API truoc
-                if (categoryList.Count == 0)
-                    await LoadDataAsync();
-
-                if (string.IsNullOrWhiteSpace(keyword))
-                {
-                    DisplayCategories(categoryList);
-                    return;
-                }
-
-                var result = categoryList
-                    .Where(c => c.Name.Contains(
-                        keyword,
-                        StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-
-                DisplayCategories(result);
-
-                if (result.Count == 0)
-                {
-                    MessageBox.Show(
-                        "Không tìm thấy nhóm hàng phù hợp!",
-                        "Thông báo",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
-                }
+                await LoadCategoriesPagedAsync(1);
             }
             catch (Exception ex)
             {
@@ -1018,7 +977,10 @@ namespace MiniSupermarket.WinForms
 
             try
             {
-                var response = await ApiClientService.Client.GetAsync($"categories/paged?page={page}&pageSize={_pageSize}");
+                string pagedUrl = $"categories/paged?page={page}&pageSize={_pageSize}";
+                if (!string.IsNullOrWhiteSpace(txtKeyword.Text))
+                    pagedUrl += $"&keyword={Uri.EscapeDataString(txtKeyword.Text.Trim())}";
+                var response = await ApiClientService.Client.GetAsync(pagedUrl);
                 response.EnsureSuccessStatusCode();
 
                 string json = await response.Content.ReadAsStringAsync();

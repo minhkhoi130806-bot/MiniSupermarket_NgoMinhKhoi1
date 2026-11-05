@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -29,6 +29,36 @@ builder.Services.AddAuthentication(options => {
          // Xac dinh claim ten va vai tro trong JWT
     NameClaimType = System.Security.Claims.ClaimTypes.Name,
         RoleClaimType = System.Security.Claims.ClaimTypes.Role
+    };
+
+    // Tùy biến thông báo phản hồi rõ ràng khi chưa đăng nhập hoặc không đủ quyền
+    options.Events = new JwtBearerEvents
+    {
+        OnChallenge = async context =>
+        {
+            context.HandleResponse();
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/json; charset=utf-8";
+            var payload = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                success = false,
+                statusCode = 401,
+                message = "Truy cập bị từ chối! Bạn chưa đăng nhập hoặc Token xác thực không hợp lệ / đã hết hạn. Vui lòng đăng nhập để tiếp tục."
+            });
+            await context.Response.WriteAsync(payload);
+        },
+        OnForbidden = async context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            context.Response.ContentType = "application/json; charset=utf-8";
+            var payload = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                success = false,
+                statusCode = 403,
+                message = "Từ chối quyền truy cập! Bạn không có quyền thực hiện chức năng này (Yêu cầu tài khoản Admin)."
+            });
+            await context.Response.WriteAsync(payload);
+        }
     };
 });
 

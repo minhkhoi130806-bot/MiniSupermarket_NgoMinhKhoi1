@@ -14,10 +14,18 @@ using System.Windows.Forms;
 
 namespace MiniSupermarket.WinForms
 {
-    // ======================================================
-    // FORM BAO CAO DOANH THU
-    //   GET reports/revenue?from=yyyy-MM-dd&to=yyyy-MM-dd
-    // ======================================================
+    // =========================================================================
+    // MÀN HÌNH BÁO CÁO DOANH THU & HIỆU SUẤT KINH DOANH
+    // - Đã tách Danh sách đơn hàng sang màn hình Quản lý Đơn hàng riêng biệt.
+    // - Bổ sung Biểu đồ tròn (Pie Chart) cơ cấu doanh thu theo nhóm hàng (Yêu cầu của Thầy).
+    // - Bổ sung Thẻ chỉ số tổng quan (KPI Summary Cards) theo Tiêu chí 44:
+    //   + Doanh thu hôm nay (VNĐ)
+    //   + Tổng số hóa đơn đã xuất
+    //   + Số lượng khách hàng mới đăng ký
+    //   + Số mặt hàng sắp hết hàng (tồn kho <= 10)
+    // - Biểu đồ cột Doanh thu theo ngày (Tiêu chí 45)
+    // - Thống kê Top sản phẩm bán chạy nhất (Tiêu chí 46)
+    // =========================================================================
     public partial class FormQuickReport : Form
     {
         private static readonly CultureInfo Vi = new("vi-VN");
@@ -29,7 +37,9 @@ namespace MiniSupermarket.WinForms
         private readonly Color successColor = Color.FromArgb(22, 163, 74);
         private readonly Color dangerColor = Color.FromArgb(220, 38, 38);
         private readonly Color warningColor = Color.FromArgb(245, 158, 11);
+        private readonly Color purpleColor = Color.FromArgb(124, 58, 237);
 
+        // Các điều khiển bộ lọc ngày
         private DateTimePicker dtpFrom = null!;
         private DateTimePicker dtpTo = null!;
         private Button btnView = null!;
@@ -39,16 +49,23 @@ namespace MiniSupermarket.WinForms
         private Button btn30 = null!;
         private Button btnMonth = null!;
 
-        private Label lblRevenue = null!;
-        private Label lblOrders = null!;
-        private Label lblAvg = null!;
-        private Label lblDiscount = null!;
-        private Label lblPayment = null!;
+        // =====================================================================
+        // TIÊU CHÍ 44: CÁC THẺ CHỈ SỐ TỔNG QUAN (KPI SUMMARY CARDS)
+        // =====================================================================
+        private Label lblRevenue = null!;     // Doanh thu kỳ chọn / Hôm nay
+        private Label lblOrders = null!;      // Tổng số hóa đơn đã xuất
+        private Label lblCustomers = null!;   // TIÊU CHÍ 44: Số lượng khách hàng mới đăng ký
+        private Label lblLowStock = null!;    // TIÊU CHÍ 44: Số mặt hàng sắp hết hàng (tồn kho <= 10)
+        private Label lblPayment = null!;     // Tỷ trọng Tiền mặt / Chuyển khoản
         private Label lblStatus = null!;
 
-        private RevenueBarChart chart = null!;
-        private DataGridView dgvTop = null!;
-        private DataGridView dgvOrders = null!;
+        // =====================================================================
+        // BIỂU ĐỒ & BẢNG SỐ LIỆU
+        // =====================================================================
+        private RevenueBarChart chart = null!;        // Tiêu chí 45: Biểu đồ cột doanh thu theo ngày
+        private RevenuePieChart pieChart = null!;     // Yêu cầu của Thầy: Biểu đồ tròn cơ cấu nhóm hàng
+        private DataGridView dgvTop = null!;          // Tiêu chí 46: Top sản phẩm bán chạy
+        private DataGridView dgvCategory = null!;     // Bảng đối chiếu tỷ trọng doanh thu theo nhóm hàng
 
         private ReportDto? _data;
         private bool _busy;
@@ -61,14 +78,14 @@ namespace MiniSupermarket.WinForms
             BuildLayout();
         }
 
-        // ======================================================
-        // GIAO DIEN
-        // ======================================================
+        // =====================================================================
+        // BƯỚC 1: XÂY DỰNG BỐ CỤC GIAO DIỆN
+        // =====================================================================
         private void BuildLayout()
         {
-            Text = "Báo cáo doanh thu";
-            Size = new Size(LogicalToDeviceUnits(1200), LogicalToDeviceUnits(760));
-            MinimumSize = new Size(LogicalToDeviceUnits(800), LogicalToDeviceUnits(520));
+            Text = "Báo cáo doanh thu & Hiệu suất kinh doanh";
+            Size = new Size(LogicalToDeviceUnits(1280), LogicalToDeviceUnits(780));
+            MinimumSize = new Size(LogicalToDeviceUnits(900), LogicalToDeviceUnits(550));
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = backgroundColor;
             Font = new Font("Segoe UI", 10F);
@@ -82,17 +99,17 @@ namespace MiniSupermarket.WinForms
                 BackColor = backgroundColor
             };
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, LogicalToDeviceUnits(58)));  // bo loc
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, LogicalToDeviceUnits(96)));  // the so lieu
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 42));                         // bieu do + top SP
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 58));                         // danh sach don
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, LogicalToDeviceUnits(26)));  // trang thai
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, LogicalToDeviceUnits(58))); // Hàng 0: Bộ lọc ngày
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, LogicalToDeviceUnits(96))); // Hàng 1: Thẻ KPI Tiêu chí 44
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 54));                        // Hàng 2: Biểu đồ Cột + Biểu đồ Tròn
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 46));                        // Hàng 3: Top SP + Bảng cơ cấu nhóm hàng
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, LogicalToDeviceUnits(26))); // Hàng 4: Thanh trạng thái
             Controls.Add(root);
 
             root.Controls.Add(BuildFilterBar(), 0, 0);
             root.Controls.Add(BuildKpiRow(), 0, 1);
-            root.Controls.Add(BuildMiddleRow(), 0, 2);
-            root.Controls.Add(BuildOrdersCard(), 0, 3);
+            root.Controls.Add(BuildChartsRow(), 0, 2);
+            root.Controls.Add(BuildTablesRow(), 0, 3);
 
             lblStatus = new Label
             {
@@ -108,7 +125,7 @@ namespace MiniSupermarket.WinForms
                 SetRange(DateTime.Today.AddDays(-29), DateTime.Today);
                 await LoadReportAsync();
 
-                // Tự động cập nhật số liệu hôm nay từ database
+                // Tự động cập nhật số liệu hôm nay từ database theo chu kỳ 10 giây
                 _autoTimer.Tick += async (s2, e2) => await RefreshSilentAsync();
                 _autoTimer.Start();
             };
@@ -120,6 +137,9 @@ namespace MiniSupermarket.WinForms
             };
         }
 
+        // =====================================================================
+        // BƯỚC 2: BỘ LỌC NGÀY VÀ CÁC NÚT THAO TÁC NHANH
+        // =====================================================================
         private Control BuildFilterBar()
         {
             var bar = new FlowLayoutPanel
@@ -147,23 +167,23 @@ namespace MiniSupermarket.WinForms
             {
                 Format = DateTimePickerFormat.Custom,
                 CustomFormat = "dd/MM/yyyy",
-                Width = LogicalToDeviceUnits(120),
-                Margin = new Padding(0, 3, 14, 0)
+                Width = LogicalToDeviceUnits(115),
+                Margin = new Padding(0, 3, 12, 0)
             };
             dtpTo = new DateTimePicker
             {
                 Format = DateTimePickerFormat.Custom,
                 CustomFormat = "dd/MM/yyyy",
-                Width = LogicalToDeviceUnits(120),
-                Margin = new Padding(0, 3, 14, 0)
+                Width = LogicalToDeviceUnits(115),
+                Margin = new Padding(0, 3, 12, 0)
             };
 
-            btnToday = MakeButton("Hôm nay", mutedColor, 90);
-            btn7 = MakeButton("7 ngày", mutedColor, 84);
-            btn30 = MakeButton("30 ngày", mutedColor, 90);
-            btnMonth = MakeButton("Tháng này", mutedColor, 100);
-            btnView = MakeButton("XEM BÁO CÁO", primaryColor, 130);
-            btnExport = MakeButton("XUẤT BÁO CÁO", successColor, 130);
+            btnToday = MakeButton("Hôm nay", mutedColor, 85);
+            btn7 = MakeButton("7 ngày", mutedColor, 80);
+            btn30 = MakeButton("30 ngày", mutedColor, 85);
+            btnMonth = MakeButton("Tháng này", mutedColor, 95);
+            btnView = MakeButton("XEM BÁO CÁO", primaryColor, 125);
+            btnExport = MakeButton("XUẤT EXCEL", successColor, 120);
 
             btnToday.Click += async (s, e) => await QuickRange(DateTime.Today, DateTime.Today);
             btn7.Click += async (s, e) => await QuickRange(DateTime.Today.AddDays(-6), DateTime.Today);
@@ -205,6 +225,14 @@ namespace MiniSupermarket.WinForms
             return b;
         }
 
+        // =====================================================================
+        // BƯỚC 3: DÃY THẺ CHỈ SỐ TỔNG QUAN (DASHBOARD KPI SUMMARY CARDS - TIÊU CHÍ 44)
+        // 1. Doanh thu hôm nay / Kỳ chọn (VNĐ)
+        // 2. Tổng số hóa đơn đã xuất
+        // 3. Số lượng khách hàng mới đăng ký (Tiêu chí 44)
+        // 4. Số mặt hàng sắp hết hàng (tồn kho <= 10) (Tiêu chí 44)
+        // 5. Cơ cấu Tiền mặt / Chuyển khoản
+        // =====================================================================
         private Control BuildKpiRow()
         {
             var row = new TableLayoutPanel
@@ -219,11 +247,21 @@ namespace MiniSupermarket.WinForms
                 row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
             row.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-            row.Controls.Add(MakeKpi("TỔNG DOANH THU", successColor, 18F, out lblRevenue), 0, 0);
-            row.Controls.Add(MakeKpi("SỐ ĐƠN HÀNG", primaryColor, 18F, out lblOrders), 1, 0);
-            row.Controls.Add(MakeKpi("GIÁ TRỊ TB / ĐƠN", warningColor, 18F, out lblAvg), 2, 0);
-            row.Controls.Add(MakeKpi("TỔNG GIẢM GIÁ", dangerColor, 18F, out lblDiscount), 3, 0);
-            row.Controls.Add(MakeKpi("TIỀN MẶT / CK-THẺ", mutedColor, 12F, out lblPayment), 4, 0);
+            // Thẻ 1: Doanh thu
+            row.Controls.Add(MakeKpi("TỔNG DOANH THU", successColor, 17F, out lblRevenue), 0, 0);
+
+            // Thẻ 2: Hóa đơn
+            row.Controls.Add(MakeKpi("SỐ HÓA ĐƠN XUẤT", primaryColor, 17F, out lblOrders), 1, 0);
+
+            // Thẻ 3: TIÊU CHÍ 44 - Số lượng khách hàng mới đăng ký
+            row.Controls.Add(MakeKpi("KHÁCH HÀNG THÀNH VIÊN", purpleColor, 17F, out lblCustomers), 2, 0);
+
+            // Thẻ 4: TIÊU CHÍ 44 - Mặt hàng sắp hết hàng (tồn kho <= 10)
+            row.Controls.Add(MakeKpi("HÀNG SẮP HẾT ", dangerColor, 17F, out lblLowStock), 3, 0);
+
+            // Thẻ 5: Tỷ trọng thanh toán tiền mặt vs chuyển khoản
+            row.Controls.Add(MakeKpi("TIỀN MẶT / CK - THẺ", warningColor, 12F, out lblPayment), 4, 0);
+
             return row;
         }
 
@@ -234,13 +272,13 @@ namespace MiniSupermarket.WinForms
                 Dock = DockStyle.Fill,
                 BackColor = Color.White,
                 Margin = new Padding(0, 0, 8, 0),
-                Padding = new Padding(14, 8, 8, 8)
+                Padding = new Padding(12, 8, 8, 8)
             };
 
             valueLabel = new Label
             {
                 Dock = DockStyle.Fill,
-                Text = "0 đ",
+                Text = "0",
                 Font = new Font("Segoe UI", valueSize, FontStyle.Bold),
                 ForeColor = textColor,
                 TextAlign = ContentAlignment.MiddleLeft,
@@ -251,19 +289,22 @@ namespace MiniSupermarket.WinForms
                 Dock = DockStyle.Top,
                 Height = LogicalToDeviceUnits(24),
                 Text = title,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+                Font = new Font("Segoe UI", 8.2F, FontStyle.Bold),
                 ForeColor = mutedColor,
                 TextAlign = ContentAlignment.MiddleLeft
             };
             var strip = new Panel { Dock = DockStyle.Left, Width = 5, BackColor = accent };
 
-            card.Controls.Add(valueLabel);   // Fill truoc
+            card.Controls.Add(valueLabel);
             card.Controls.Add(lblTitle);
             card.Controls.Add(strip);
             return card;
         }
 
-        private Control BuildMiddleRow()
+        // =====================================================================
+        // BƯỚC 4: HÀNG 2 - BIỂU ĐỒ CỘT (TIÊU CHÍ 45) VÀ BIỂU ĐỒ TRÒN (YÊU CẦU CỦA THẦY)
+        // =====================================================================
+        private Control BuildChartsRow()
         {
             var row = new TableLayoutPanel
             {
@@ -273,41 +314,64 @@ namespace MiniSupermarket.WinForms
                 Margin = new Padding(0, 0, 0, 8),
                 BackColor = backgroundColor
             };
-            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58));
-            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55)); // 55% cho Biểu đồ cột
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45)); // 45% cho Biểu đồ tròn
             row.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
+            // 1. Biểu đồ cột theo ngày (Tiêu chí 45)
             chart = new RevenueBarChart { Dock = DockStyle.Fill, BarColor = primaryColor };
-            var chartCard = MakeCard("DOANH THU THEO NGÀY", chart);
+            var chartCard = MakeCard("BIỂU ĐỒ CỘT: DOANH THU THEO NGÀY ", chart);
             chartCard.Margin = new Padding(0, 0, 4, 0);
 
-            dgvTop = CreateGrid();
-            AddCol(dgvTop, "Rank", "#", 8, DataGridViewContentAlignment.MiddleCenter);
-            AddCol(dgvTop, "Name", "Sản phẩm", 52, DataGridViewContentAlignment.MiddleLeft);
-            AddCol(dgvTop, "Qty", "SL bán", 15, DataGridViewContentAlignment.MiddleCenter);
-            AddCol(dgvTop, "Revenue", "Doanh thu", 25, DataGridViewContentAlignment.MiddleRight);
-            var topCard = MakeCard("TOP SẢN PHẨM BÁN CHẠY", dgvTop);
-            topCard.Margin = new Padding(4, 0, 0, 0);
+            // 2. Biểu đồ tròn theo nhóm hàng (Yêu cầu của Thầy)
+            pieChart = new RevenuePieChart { Dock = DockStyle.Fill };
+            var pieCard = MakeCard("BIỂU ĐỒ TRÒN: CƠ CẤU DOANH THU THEO NHÓM HÀNG", pieChart);
+            pieCard.Margin = new Padding(4, 0, 0, 0);
 
             row.Controls.Add(chartCard, 0, 0);
-            row.Controls.Add(topCard, 1, 0);
+            row.Controls.Add(pieCard, 1, 0);
             return row;
         }
 
-        private Control BuildOrdersCard()
+        // =====================================================================
+        // BƯỚC 5: HÀNG 3 - TOP SẢN PHẨM (TIÊU CHÍ 46) & BẢNG CƠ CẤU DOANH THU
+        // (Thay thế cho danh sách đơn hàng đã bỏ ra ngoài)
+        // =====================================================================
+        private Control BuildTablesRow()
         {
-            dgvOrders = CreateGrid();
-            AddCol(dgvOrders, "Code", "Mã đơn", 12, DataGridViewContentAlignment.MiddleLeft);
-            AddCol(dgvOrders, "Time", "Thời gian", 16, DataGridViewContentAlignment.MiddleCenter);
-            AddCol(dgvOrders, "Cashier", "Thu ngân", 13, DataGridViewContentAlignment.MiddleLeft);
-            AddCol(dgvOrders, "Customer", "Khách hàng", 17, DataGridViewContentAlignment.MiddleLeft);
-            AddCol(dgvOrders, "Method", "Thanh toán", 14, DataGridViewContentAlignment.MiddleCenter);
-            AddCol(dgvOrders, "Discount", "Giảm giá", 16, DataGridViewContentAlignment.MiddleRight);
-            AddCol(dgvOrders, "Final", "Thành tiền", 14, DataGridViewContentAlignment.MiddleRight);
+            var row = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = new Padding(0, 0, 0, 4),
+                BackColor = backgroundColor
+            };
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            row.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-            var card = MakeCard("DANH SÁCH ĐƠN HÀNG", dgvOrders);
-            card.Margin = new Padding(0, 0, 0, 4);
-            return card;
+            // Bảng 1: Top 10 sản phẩm bán chạy nhất (Tiêu chí 46)
+            dgvTop = CreateGrid();
+            AddCol(dgvTop, "Rank", "#", 8, DataGridViewContentAlignment.MiddleCenter);
+            AddCol(dgvTop, "Name", "Tên sản phẩm", 52, DataGridViewContentAlignment.MiddleLeft);
+            AddCol(dgvTop, "Qty", "SL đã bán", 16, DataGridViewContentAlignment.MiddleCenter);
+            AddCol(dgvTop, "Revenue", "Doanh thu", 24, DataGridViewContentAlignment.MiddleRight);
+            var topCard = MakeCard("TOP SẢN PHẨM BÁN CHẠY NHẤT ", dgvTop);
+            topCard.Margin = new Padding(0, 0, 4, 0);
+
+            // Bảng 2: Bảng chi tiết doanh thu theo Danh mục hàng hóa (đối chiếu biểu đồ tròn)
+            dgvCategory = CreateGrid();
+            AddCol(dgvCategory, "CatRank", "#", 8, DataGridViewContentAlignment.MiddleCenter);
+            AddCol(dgvCategory, "CatName", "Nhóm danh mục hàng", 48, DataGridViewContentAlignment.MiddleLeft);
+            AddCol(dgvCategory, "CatQty", "Tổng SL", 16, DataGridViewContentAlignment.MiddleCenter);
+            AddCol(dgvCategory, "CatRev", "Doanh thu", 28, DataGridViewContentAlignment.MiddleRight);
+            var catCard = MakeCard("CHI TIẾT DOANH THU THEO NHÓM DANH MỤC HÀNG", dgvCategory);
+            catCard.Margin = new Padding(4, 0, 0, 0);
+
+            row.Controls.Add(topCard, 0, 0);
+            row.Controls.Add(catCard, 1, 0);
+            return row;
         }
 
         private Panel MakeCard(string title, Control content)
@@ -324,11 +388,11 @@ namespace MiniSupermarket.WinForms
                 Text = title,
                 Dock = DockStyle.Top,
                 Height = LogicalToDeviceUnits(28),
-                Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
                 ForeColor = textColor,
                 TextAlign = ContentAlignment.MiddleLeft
             };
-            card.Controls.Add(content);   // Fill truoc
+            card.Controls.Add(content);
             card.Controls.Add(lbl);
             return card;
         }
@@ -349,13 +413,13 @@ namespace MiniSupermarket.WinForms
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 EnableHeadersVisualStyles = false,
-                ColumnHeadersHeight = LogicalToDeviceUnits(36),
+                ColumnHeadersHeight = LogicalToDeviceUnits(34),
                 ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
                 CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
                 GridColor = Color.FromArgb(226, 232, 240),
                 Font = new Font("Segoe UI", 9.5F)
             };
-            g.RowTemplate.Height = LogicalToDeviceUnits(34);
+            g.RowTemplate.Height = LogicalToDeviceUnits(32);
             g.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(31, 45, 65);
             g.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
             g.ColumnHeadersDefaultCellStyle.SelectionBackColor = Color.FromArgb(31, 45, 65);
@@ -369,23 +433,22 @@ namespace MiniSupermarket.WinForms
             return g;
         }
 
-        private static void AddCol(DataGridView g, string name, string header, float weight,
-            DataGridViewContentAlignment align)
+        private static void AddCol(DataGridView g, string name, string header, float weight, DataGridViewContentAlignment align)
         {
             g.Columns.Add(new DataGridViewTextBoxColumn
             {
                 Name = name,
                 HeaderText = header,
                 FillWeight = weight,
-                MinimumWidth = 40,
+                MinimumWidth = 35,
                 SortMode = DataGridViewColumnSortMode.NotSortable,
                 DefaultCellStyle = new DataGridViewCellStyle { Alignment = align }
             });
         }
 
-        // ======================================================
-        // TAI DU LIEU
-        // ======================================================
+        // =====================================================================
+        // BƯỚC 6: TẢI DỮ LIỆU TỪ WEB API (GET reports/revenue)
+        // =====================================================================
         private void SetRange(DateTime from, DateTime to)
         {
             dtpFrom.Value = from;
@@ -410,7 +473,6 @@ namespace MiniSupermarket.WinForms
         {
             if (_busy) return;
 
-            // Khoảng ngày đang xem kết thúc ở hôm nay -> tự động theo dõi dữ liệu mới
             _followToday = dtpTo.Value.Date >= DateTime.Today;
 
             DateTime from = dtpFrom.Value.Date;
@@ -433,7 +495,7 @@ namespace MiniSupermarket.WinForms
                 new AuthenticationHeaderValue("Bearer", SessionManager.JwtToken);
 
             SetBusy(true);
-            lblStatus.Text = "Đang tải báo cáo...";
+            lblStatus.Text = "Đang tải báo cáo doanh thu & biểu đồ...";
 
             try
             {
@@ -472,22 +534,18 @@ namespace MiniSupermarket.WinForms
             }
         }
 
-        // ======================================================
-        // HIEN THI
-        // ======================================================
-        // Tải lại âm thầm (không hộp thoại, không đổi con trỏ) để số liệu luôn mới
+        // Tải lại ngầm để cập nhật số liệu theo thời gian thực
         private async Task RefreshSilentAsync()
         {
             if (_busy || _refreshing || IsDisposed || !IsHandleCreated) return;
             if (string.IsNullOrWhiteSpace(SessionManager.JwtToken)) return;
 
-            // Sang ngày mới: kéo "Đến ngày" theo hôm nay
             if (_followToday && dtpTo.Value.Date < DateTime.Today)
                 dtpTo.Value = DateTime.Today;
 
             DateTime from = dtpFrom.Value.Date;
             DateTime to = dtpTo.Value.Date;
-            if (from > to || to < DateTime.Today) return;   // đang xem khoảng cũ, không cần làm mới
+            if (from > to || to < DateTime.Today) return;
 
             _refreshing = true;
             try
@@ -506,11 +564,11 @@ namespace MiniSupermarket.WinForms
 
                 _data = data;
                 Render(data, from, to);
-                lblStatus.Text += $"  |  Cập nhật lúc {DateTime.Now:HH:mm:ss}";
+                lblStatus.Text += $"  |  Tự động cập nhật: {DateTime.Now:HH:mm:ss}";
             }
             catch
             {
-                // Lỗi mạng tạm thời: bỏ qua, lần sau thử lại
+                // Bỏ qua lỗi tạm thời
             }
             finally
             {
@@ -520,29 +578,24 @@ namespace MiniSupermarket.WinForms
 
         private static string Money(decimal v) => v.ToString("N0", Vi) + " đ";
 
-        private static string MethodText(string? m) =>
-            string.Equals(m, "CASH", StringComparison.OrdinalIgnoreCase) ? "Tiền mặt" : "Chuyển khoản/Thẻ";
-
+        // =====================================================================
+        // BƯỚC 7: HIỂN THỊ DỮ LIỆU LÊN GIAO DIỆN & VẼ BIỂU ĐỒ
+        // =====================================================================
         private void Render(ReportDto d, DateTime from, DateTime to)
         {
             var s = d.Summary ?? new ReportSummaryDto();
 
+            // 1. Thẻ KPI
             lblRevenue.Text = Money(s.TotalRevenue);
-            lblOrders.Text = s.TotalOrders.ToString("N0", Vi) + $"  ({s.TotalItems:N0} sp)";
-            lblAvg.Text = Money(s.AverageOrderValue);
-            if (s.TotalDiscount > 0)
-            {
-                lblDiscount.Font = new Font("Segoe UI", 18F, FontStyle.Bold);
-                lblDiscount.Text = Money(s.TotalDiscount);
-            }
-            else
-            {
-                lblDiscount.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-                lblDiscount.Text = "Chưa có giảm giá";
-            }
+            lblOrders.Text = s.TotalOrders.ToString("N0", Vi) + $" đơn ({s.TotalItems:N0} sp)";
+
+            // TIÊU CHÍ 44: Hiển thị số lượng khách hàng mới đăng ký & Tồn kho thấp
+            lblCustomers.Text = s.TotalCustomers.ToString("N0", Vi) + " thành viên";
+            lblLowStock.Text = s.LowStockCount.ToString("N0", Vi) + " mặt hàng";
+
             lblPayment.Text = RevenueBarChart.Short(s.CashRevenue) + "  /  " + RevenueBarChart.Short(s.TransferRevenue);
 
-            // Bieu do: dien du cac ngay khong co doanh thu
+            // 2. Biểu đồ cột doanh thu theo ngày (Tiêu chí 45)
             var days = new List<DailyRevenueDto>();
             for (var day = from; day <= to; day = day.AddDays(1))
             {
@@ -552,36 +605,39 @@ namespace MiniSupermarket.WinForms
             chart.Data = days;
             chart.Invalidate();
 
-            // Top san pham
+            // 3. Biểu đồ tròn cơ cấu nhóm hàng (Yêu cầu của Thầy)
+            pieChart.Data = d.CategoryShares;
+            pieChart.Invalidate();
+
+            // 4. Bảng Top 10 sản phẩm bán chạy (Tiêu chí 46)
             dgvTop.Rows.Clear();
             int rank = 1;
             foreach (var p in d.TopProducts)
-                dgvTop.Rows.Add(rank++, p.ProductName, p.Quantity.ToString("N0", Vi), p.Revenue.ToString("N0", Vi));
+                dgvTop.Rows.Add(rank++, p.ProductName, p.Quantity.ToString("N0", Vi), p.Revenue.ToString("N0", Vi) + " đ");
 
-            // Don hang
-            dgvOrders.Rows.Clear();
-            foreach (var o in d.Orders)
+            // 5. Bảng chi tiết doanh thu theo Nhóm hàng
+            dgvCategory.Rows.Clear();
+            int catRank = 1;
+            foreach (var c in d.CategoryShares)
             {
-                dgvOrders.Rows.Add(
-                    o.OrderCode,
-                    o.CreatedAt.ToString("dd/MM/yyyy HH:mm", Vi),
-                    o.CashierUsername,
-                    string.IsNullOrWhiteSpace(o.CustomerName) ? "Khách vãng lai" : o.CustomerName,
-                    MethodText(o.PaymentMethod),
-                    o.DiscountAmount > 0 ? o.DiscountAmount.ToString("N0", Vi) : "Chưa có giảm giá",
-                    o.FinalAmount.ToString("N0", Vi));
+                dgvCategory.Rows.Add(
+                    catRank++,
+                    c.CategoryName,
+                    c.Quantity.ToString("N0", Vi),
+                    c.Revenue.ToString("N0", Vi) + " đ"
+                );
             }
 
             lblStatus.Text =
-                $"Từ {from:dd/MM/yyyy} đến {to:dd/MM/yyyy}  |  {s.TotalOrders} đơn hàng  |  Doanh thu {Money(s.TotalRevenue)}";
+                $"Từ {from:dd/MM/yyyy} đến {to:dd/MM/yyyy}  |  {s.TotalOrders} đơn hàng  |  Tổng doanh thu: {Money(s.TotalRevenue)}";
         }
 
-        // ======================================================
+        // =====================================================================
         // TIÊU CHÍ 48: XUẤT BÁO CÁO EXCEL (.XLSX) HOẶC CSV (.CSV)
-        // ======================================================
+        // =====================================================================
         private void ExportReport()
         {
-            if (_data == null || _data.Orders.Count == 0)
+            if (_data == null)
             {
                 MessageBox.Show(
                     "Chưa có dữ liệu để xuất. Hãy bấm XEM BÁO CÁO trước.",
@@ -598,6 +654,7 @@ namespace MiniSupermarket.WinForms
                 DefaultExt = "xlsx",
                 AddExtension = true
             };
+
             if (dlg.ShowDialog(this) != DialogResult.OK) return;
 
             try
@@ -624,9 +681,9 @@ namespace MiniSupermarket.WinForms
         }
     }
 
-    // ======================================================
-    // BIEU DO COT TU VE (khong can thu vien ngoai)
-    // ======================================================
+    // =========================================================================
+    // BIỂU ĐỒ CỘT DOANH THU THEO NGÀY (TIÊU CHÍ 45 - TỰ VẼ BẰNG C# GDI+)
+    // =========================================================================
     public class RevenueBarChart : Panel
     {
         public List<DailyRevenueDto> Data { get; set; } = new();
@@ -717,14 +774,185 @@ namespace MiniSupermarket.WinForms
         }
     }
 
-    // ======================================================
-    // DTO NHAN TU API
-    // ======================================================
+    // =========================================================================
+    // BIỂU ĐỒ TRÒN CƠ CẤU DOANH THU (PIE CHART - YÊU CẦU CỦA THẦY)
+    // Tự vẽ 100% bằng C# GDI+ với bảng màu phân biệt, chú giải danh mục và phần trăm
+    // =========================================================================
+    // BIỂU ĐỒ TRÒN CƠ CẤU DOANH THU THEO NHÓM HÀNG (YÊU CẦU CỦA THẦY - VẼ GDI+)
+    // Thiết kế Donut Chart hiện đại, tự động căn chỉnh chữ, chống đè chữ tuyệt đối
+    // =========================================================================
+    public class RevenuePieChart : Panel
+    {
+        public List<CategoryShareDto> Data { get; set; } = new();
+
+        // Bảng màu sắc tương phản, hài hòa cho từng lát cắt danh mục
+        private static readonly Color[] Palette = new[]
+        {
+            Color.FromArgb(16, 185, 129),   // Xanh lá hữu cơ
+            Color.FromArgb(59, 130, 246),   // Xanh dương tươi
+            Color.FromArgb(245, 158, 11),   // Vàng cam ấm
+            Color.FromArgb(139, 92, 246),   // Tím thạch anh
+            Color.FromArgb(239, 68, 68),    // Đỏ san hô
+            Color.FromArgb(6, 182, 212),    // Xanh lơ cyan
+            Color.FromArgb(236, 72, 153),   // Hồng sen
+            Color.FromArgb(99, 102, 241),   // Xanh chàm indigo
+            Color.FromArgb(20, 184, 166),   // Xanh ngọc lục bảo
+            Color.FromArgb(100, 116, 139)   // Xám ghi
+        };
+
+        public RevenuePieChart()
+        {
+            DoubleBuffered = true;
+            ResizeRedraw = true;
+            BackColor = Color.White;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            base.OnPaint(e);
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+
+            using var fontNormal = new Font("Segoe UI", 8.8F);
+            using var fontBold = new Font("Segoe UI", 8.8F, FontStyle.Bold);
+            using var fontCenterLabel = new Font("Segoe UI", 7.5F, FontStyle.Bold);
+            using var fontCenterVal = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+
+            using var textBrush = new SolidBrush(Color.FromArgb(30, 41, 59));
+            using var mutedBrush = new SolidBrush(Color.FromArgb(100, 116, 139));
+            using var centerFormat = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+            using var leftFormat = new StringFormat
+            {
+                Alignment = StringAlignment.Near,
+                LineAlignment = StringAlignment.Center,
+                Trimming = StringTrimming.EllipsisCharacter,
+                FormatFlags = StringFormatFlags.NoWrap
+            };
+            using var rightFormat = new StringFormat
+            {
+                Alignment = StringAlignment.Far,
+                LineAlignment = StringAlignment.Center,
+                FormatFlags = StringFormatFlags.NoWrap
+            };
+
+            var validData = Data.Where(x => x.Revenue > 0).OrderByDescending(x => x.Revenue).ToList();
+            decimal totalRevenue = validData.Sum(x => x.Revenue);
+
+            if (validData.Count == 0 || totalRevenue <= 0)
+            {
+                g.DrawString("Chưa có số liệu doanh thu theo nhóm hàng", fontNormal, mutedBrush,
+                    new RectangleF(0, 0, Width, Height), centerFormat);
+                return;
+            }
+
+            // Gom nhóm danh mục: Hiển thị tối đa Top 5 nhóm hàng, phần còn lại gom vào "Nhóm khác"
+            // Cách làm này giúp biểu đồ thoáng đãng, chuyên nghiệp chuẩn Dashboard BI
+            var displayList = new List<(string Name, decimal Revenue, Color Color, double Percent)>();
+            int topLimit = Math.Min(validData.Count, 5);
+            for (int i = 0; i < topLimit; i++)
+            {
+                var d = validData[i];
+                double pct = (double)(d.Revenue / totalRevenue * 100m);
+                displayList.Add((d.CategoryName, d.Revenue, Palette[i % Palette.Length], pct));
+            }
+            if (validData.Count > 5)
+            {
+                decimal otherRev = validData.Skip(5).Sum(x => x.Revenue);
+                double otherPct = (double)(otherRev / totalRevenue * 100m);
+                displayList.Add(($"Nhóm khác ({validData.Count - 5})", otherRev, Palette[5 % Palette.Length], otherPct));
+            }
+
+            // 1. Phân vùng: Bên trái vẽ Biểu đồ tròn Donut (40%), Bên phải vẽ Chú giải chi tiết (60%)
+            int splitX = (int)(Width * 0.40f);
+            int padding = 10;
+            int pieDiameter = Math.Min(splitX - padding * 2, Height - padding * 2);
+
+            if (pieDiameter >= 36)
+            {
+                int pieX = padding + (splitX - padding * 2 - pieDiameter) / 2;
+                int pieY = (Height - pieDiameter) / 2;
+                var pieRect = new Rectangle(pieX, pieY, pieDiameter, pieDiameter);
+
+                // Vẽ các lát cắt tròn
+                float startAngle = -90f;
+                using var borderPen = new Pen(Color.White, 2f);
+
+                foreach (var item in displayList)
+                {
+                    float sweepAngle = (float)(item.Percent / 100.0 * 360.0);
+                    if (sweepAngle <= 0.1f) continue;
+
+                    using var sliceBrush = new SolidBrush(item.Color);
+                    g.FillPie(sliceBrush, pieRect, startAngle, sweepAngle);
+                    g.DrawPie(borderPen, pieRect, startAngle, sweepAngle);
+                    startAngle += sweepAngle;
+                }
+
+                // Vẽ tâm tròn Donut màu trắng
+                int innerDiameter = (int)(pieDiameter * 0.52f);
+                int innerX = pieX + (pieDiameter - innerDiameter) / 2;
+                int innerY = pieY + (pieDiameter - innerDiameter) / 2;
+                g.FillEllipse(Brushes.White, innerX, innerY, innerDiameter, innerDiameter);
+
+                // Chữ hiển thị ngắn gọn ở tâm Donut
+                float midY = innerY + (innerDiameter / 2f);
+                g.DrawString("CƠ CẤU", fontCenterLabel, mutedBrush,
+                    new RectangleF(innerX, midY - 14f, innerDiameter, 13f), centerFormat);
+                g.DrawString("100%", fontCenterVal, textBrush,
+                    new RectangleF(innerX, midY, innerDiameter, 15f), centerFormat);
+            }
+
+            // 2. Vẽ Bảng Chú Giải (Legend) thông minh ở nửa bên phải - CHỐNG ĐÈ CHỮ HOÀN TOÀN
+            int legendLeft = splitX + 8;
+            int legendRight = Width - 8;
+            int legendAvailableWidth = legendRight - legendLeft;
+
+            if (legendAvailableWidth < 80) return;
+
+            int rowCount = displayList.Count;
+            int rowHeight = Math.Min(28, Math.Max(20, (Height - 16) / Math.Max(1, rowCount)));
+            int startY = Math.Max(6, (Height - rowCount * rowHeight) / 2);
+
+            for (int i = 0; i < rowCount; i++)
+            {
+                var item = displayList[i];
+                int y = startY + i * rowHeight;
+
+                // A. Ô vuông màu đại diện (kích thước 10x10)
+                int boxSize = 10;
+                int boxY = y + (rowHeight - boxSize) / 2;
+                using var boxBrush = new SolidBrush(item.Color);
+                g.FillRectangle(boxBrush, legendLeft, boxY, boxSize, boxSize);
+
+                // B. Cột Tỷ lệ % & Doanh thu (Canh lề PHẢI sát mép phải, không bị che)
+                string shareText = $"{item.Percent:0.0}% ({RevenueBarChart.Short(item.Revenue)})";
+                var shareSize = g.MeasureString(shareText, fontBold);
+                float shareWidth = (float)Math.Ceiling(shareSize.Width) + 2f;
+                float shareX = legendRight - shareWidth;
+
+                var shareRect = new RectangleF(shareX, y, shareWidth, rowHeight);
+                g.DrawString(shareText, fontBold, mutedBrush, shareRect, rightFormat);
+
+                // C. Cột Tên nhóm hàng (Nằm giữa ô màu và cột tỷ lệ, tự động gắn dấu ... nếu quá dài)
+                float catX = legendLeft + boxSize + 6f;
+                float catWidth = Math.Max(20f, shareX - catX - 6f); // Đảm bảo luôn cách số % ít nhất 6px
+
+                var catRect = new RectangleF(catX, y, catWidth, rowHeight);
+                g.DrawString(item.Name, fontNormal, textBrush, catRect, leftFormat);
+            }
+        }
+    }
+
+    // =========================================================================
+    // DTO NHẬN DỮ LIỆU TỪ WEB API
+    // =========================================================================
     public class ReportDto
     {
         public ReportSummaryDto Summary { get; set; } = new();
         public List<DailyRevenueDto> Daily { get; set; } = new();
         public List<TopProductDto> TopProducts { get; set; } = new();
+        public List<CategoryShareDto> CategoryShares { get; set; } = new(); // Dành cho Biểu đồ tròn
         public List<ReportOrderDto> Orders { get; set; } = new();
     }
 
@@ -737,6 +965,19 @@ namespace MiniSupermarket.WinForms
         public decimal TotalDiscount { get; set; }
         public decimal CashRevenue { get; set; }
         public decimal TransferRevenue { get; set; }
+
+        // TIÊU CHÍ 44: Thêm trường khách hàng và hàng sắp hết kho
+        public int TotalCustomers { get; set; }
+        public int LowStockCount { get; set; }
+        public decimal TodayRevenue { get; set; }
+        public int TodayOrders { get; set; }
+    }
+
+    public class CategoryShareDto
+    {
+        public string CategoryName { get; set; } = string.Empty;
+        public decimal Revenue { get; set; }
+        public int Quantity { get; set; }
     }
 
     public class DailyRevenueDto

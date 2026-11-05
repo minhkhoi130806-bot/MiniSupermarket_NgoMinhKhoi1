@@ -1,4 +1,4 @@
-﻿using MiniSupermarket.Winforms;
+using MiniSupermarket.Winforms;
 using System;
 using System.Drawing;
 using System.Windows.Forms;
@@ -20,8 +20,9 @@ namespace MiniSupermarket.WinForms
 
         // Các nút chức năng
         private Button btnPOS = null!;
+        private Button btnOrderManage = null!; // Quản lý & kiểm tra đơn hàng
         private Button btnCategory = null!;
-        private Button btnProduct = null!;
+        private Button btnProduct = null!;     // Hiển thị cho cả Admin, Warehouse VÀ Cashier
         private Button btnCustomer = null!;
         private Button btnReports = null!;
         private Button btnUserManage = null!;
@@ -113,8 +114,9 @@ namespace MiniSupermarket.WinForms
             };
             panelSidebar.Controls.Add(panelMenu);
 
-            // Tạo các nút menu
+            // Tạo các nút menu chức năng
             btnPOS = CreateSidebarButton("  🛒  Bán hàng (POS)");
+            btnOrderManage = CreateSidebarButton("  🧾  Quản lý Đơn hàng");
             btnCategory = CreateSidebarButton("  📁  Quản lý Danh mục");
             btnProduct = CreateSidebarButton("  📦  Quản lý Sản phẩm");
             btnCustomer = CreateSidebarButton("  👥  Quản lý Khách hàng");
@@ -122,6 +124,7 @@ namespace MiniSupermarket.WinForms
             btnUserManage = CreateSidebarButton("  🛡  Quản trị Tài khoản");
 
             panelMenu.Controls.Add(btnPOS);
+            panelMenu.Controls.Add(btnOrderManage);
             panelMenu.Controls.Add(btnCategory);
             panelMenu.Controls.Add(btnProduct);
             panelMenu.Controls.Add(btnCustomer);
@@ -129,6 +132,7 @@ namespace MiniSupermarket.WinForms
             panelMenu.Controls.Add(btnUserManage);
 
             btnPOS.Click += btnPOS_Click;
+            btnOrderManage.Click += btnOrderManage_Click;
             btnCategory.Click += btnCategory_Click;
             btnProduct.Click += btnProduct_Click;
             btnCustomer.Click += btnCustomer_Click;
@@ -151,7 +155,6 @@ namespace MiniSupermarket.WinForms
             panelUserFooter.Controls.Add(btnLogout);
             panelSidebar.Controls.Add(panelUserFooter);
 
-            // SỬA LỖI: đưa panelMenu lên trước để không bị logo che
             panelMenu.BringToFront();
 
             UpdateMenuButtonWidths();
@@ -206,28 +209,29 @@ namespace MiniSupermarket.WinForms
 
         private void BuildHeader()
         {
-            lblTitle = new Label
-            {
-                Text = "BÀN LÀM VIỆC HỆ THỐNG",
-                Dock = DockStyle.Left,
-                Width = 620,
-                ForeColor = Color.FromArgb(24, 30, 48),
-                Font = new Font("Segoe UI", 13, FontStyle.Bold),
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-
             lblUserInfo = new Label
             {
                 Text = "Xin chào: ...",
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Right,
+                Width = 360,
                 ForeColor = Color.FromArgb(90, 100, 115),
-                Font = new Font("Segoe UI", 9, FontStyle.Regular),
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Regular),
                 TextAlign = ContentAlignment.MiddleRight,
                 AutoEllipsis = true
             };
 
-            panelTopHeader.Controls.Add(lblUserInfo);
+            lblTitle = new Label
+            {
+                Text = "BÀN LÀM VIỆC HỆ THỐNG",
+                Dock = DockStyle.Fill,
+                ForeColor = Color.FromArgb(24, 30, 48),
+                Font = new Font("Segoe UI", 13, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true
+            };
+
             panelTopHeader.Controls.Add(lblTitle);
+            panelTopHeader.Controls.Add(lblUserInfo);
         }
 
         // ================= LOAD FORM =================
@@ -320,6 +324,7 @@ namespace MiniSupermarket.WinForms
             {
                 case "ADMIN":
                     btnPOS.Visible = true;
+                    btnOrderManage.Visible = true;
                     btnCategory.Visible = true;
                     btnProduct.Visible = true;
                     btnCustomer.Visible = true;
@@ -329,9 +334,10 @@ namespace MiniSupermarket.WinForms
 
                 case "CASHIER":
                     btnPOS.Visible = true;
+                    btnOrderManage.Visible = true; // Thu ngân được tra cứu kiểm tra đơn hàng đã bán
+                    btnProduct.Visible = true;     // YÊU CẦU: Hiển thị Quản lý sản phẩm ở Cashier luôn
                     btnCustomer.Visible = true;
                     btnCategory.Visible = false;
-                    btnProduct.Visible = false;
                     btnReports.Visible = false;
                     btnUserManage.Visible = false;
                     return true;
@@ -340,6 +346,7 @@ namespace MiniSupermarket.WinForms
                     btnCategory.Visible = true;
                     btnProduct.Visible = true;
                     btnPOS.Visible = false;
+                    btnOrderManage.Visible = false;
                     btnCustomer.Visible = false;
                     btnReports.Visible = false;
                     btnUserManage.Visible = false;
@@ -377,6 +384,19 @@ namespace MiniSupermarket.WinForms
         }
 
         // ================= SỰ KIỆN CLICK SIDEBAR =================
+        private void btnPOS_Click(object? sender, EventArgs e)
+        {
+            OpenChildForm(new FormPOS(),
+                "HỆ THỐNG QUẦY BÁN HÀNG & THU NGÂN (POS)", btnPOS);
+        }
+
+        // Chức năng: Quản lý & kiểm tra đơn hàng
+        private void btnOrderManage_Click(object? sender, EventArgs e)
+        {
+            OpenChildForm(new FormOrderManagement(),
+                "QUẢN LÝ & TRA CỨU ĐƠN HÀNG", btnOrderManage);
+        }
+
         private void btnCategory_Click(object? sender, EventArgs e)
         {
             OpenChildForm(new FormCategoryManagement(),
@@ -395,13 +415,7 @@ namespace MiniSupermarket.WinForms
                 "QUẢN LÝ KHÁCH HÀNG & TÍCH ĐIỂM", btnCustomer);
         }
 
-        private void btnPOS_Click(object? sender, EventArgs e)
-        {
-            OpenChildForm(new FormPOS(),
-                "HỆ THỐNG QUẦY BÁN HÀNG & THU NGÂN (POS)", btnPOS);
-        }
-
-        // Chỉ Admin được xem báo cáo (lớp bảo vệ thứ 2)
+        // Chỉ Admin được xem báo cáo
         private void btnReports_Click(object? sender, EventArgs e)
         {
             if (!string.Equals(SessionManager.CurrentRole, "Admin",
@@ -413,7 +427,7 @@ namespace MiniSupermarket.WinForms
             }
 
             OpenChildForm(new FormQuickReport(),
-                "BÁO CÁO DOANH THU & HIỆU SUẤT CA BÁN", btnReports);
+                "BÁO CÁO DOANH THU & HIỆU SUẤT KINH DOANH", btnReports);
         }
 
         // Chỉ Admin được quản trị tài khoản
@@ -442,6 +456,7 @@ namespace MiniSupermarket.WinForms
 
             // Xóa phiên đăng nhập
             SessionManager.JwtToken = string.Empty;
+            ApiClientService.Client.DefaultRequestHeaders.Authorization = null;
             SessionManager.CurrentUsername = string.Empty;
             SessionManager.CurrentRole = string.Empty;
 

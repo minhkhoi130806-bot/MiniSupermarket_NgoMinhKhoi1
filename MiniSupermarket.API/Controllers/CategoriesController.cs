@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MiniSupermarket.API.Data;
@@ -6,6 +6,7 @@ using MiniSupermarket.API.Models;
 
 namespace MiniSupermarket.API.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class CategoriesController : ControllerBase
@@ -121,15 +122,24 @@ namespace MiniSupermarket.API.Controllers
 
         // GET: api/categories/paged?page=1&pageSize=8
         [HttpGet("paged")]
-        public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int pageSize = 8)
+        public async Task<IActionResult> GetPaged(
+            [FromQuery] int page = 1, 
+            [FromQuery] int pageSize = 8,
+            [FromQuery] string? keyword = null)
         {
             if (page < 1) page = 1;
             if (pageSize < 1 || pageSize > 50) pageSize = 8;
 
-            var query = _context.Categories.AsNoTracking();
+            var query = _context.Categories.AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                var kw = keyword.Trim();
+                query = query.Where(c => c.CategoryName.Contains(kw) || (c.Description != null && c.Description.Contains(kw)));
+            }
 
             var totalRecords = await query.CountAsync();
-            var totalPages = (int)Math.Ceiling((double)totalRecords / pageSize);
+            var totalPages = totalRecords > 0 ? (int)Math.Ceiling((double)totalRecords / pageSize) : 1;
 
             var items = await query
                 .OrderBy(c => c.CategoryId)

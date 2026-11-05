@@ -202,7 +202,7 @@ namespace MiniSupermarket.Winforms
             _searchBar.Controls.Add(txtKeyword, 0, 0);
             _searchBar.Controls.Add(btnSearch, 1, 0);
             _searchBar.Controls.Add(btnLoad, 2, 0);
-
+            
             // Tieu de danh sach
             _lblListTitle = new Label
             {
@@ -790,28 +790,10 @@ namespace MiniSupermarket.Winforms
 
         private async void btnSearch_Click(object? sender, EventArgs e)
         {
-            string keyword = txtKeyword.Text.Trim();
-
-            if (string.IsNullOrWhiteSpace(keyword))
-            {
-                await LoadCustomersAsync();
-                return;
-            }
-
-            if (!PrepareAuthorization())
-                return;
-
             SetBusy(true);
-
             try
             {
-                string encodedKeyword = Uri.EscapeDataString(keyword);
-
-                var result = await ApiClientService.Client
-                    .GetFromJsonAsync<List<Customer>>(
-                        $"customers/search?keyword={encodedKeyword}");
-
-                DisplayCustomers(result ?? new List<Customer>(), "Kết quả");
+                await LoadCustomersPagedAsync(1);
             }
             catch (Exception ex)
             {
@@ -860,7 +842,7 @@ namespace MiniSupermarket.Winforms
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
 
-                    await LoadCustomersAsync();
+                    await LoadCustomersPagedAsync(_currentPage);
                     ClearForm();
                 }
                 else
@@ -910,7 +892,7 @@ namespace MiniSupermarket.Winforms
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
 
-                    await LoadCustomersAsync();
+                    await LoadCustomersPagedAsync(_currentPage);
                     ClearForm();
                 }
                 else
@@ -964,7 +946,7 @@ namespace MiniSupermarket.Winforms
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
 
-                    await LoadCustomersAsync();
+                    await LoadCustomersPagedAsync(_currentPage);
                     ClearForm();
                 }
                 else
@@ -1085,7 +1067,10 @@ namespace MiniSupermarket.Winforms
 
             try
             {
-                var response = await ApiClientService.Client.GetAsync($"customers/paged?page={page}&pageSize={_pageSize}");
+                string pagedUrl = $"customers/paged?page={page}&pageSize={_pageSize}";
+                if (!string.IsNullOrWhiteSpace(txtKeyword.Text))
+                    pagedUrl += $"&keyword={Uri.EscapeDataString(txtKeyword.Text.Trim())}";
+                var response = await ApiClientService.Client.GetAsync(pagedUrl);
                 if (!response.IsSuccessStatusCode)
                     throw new Exception($"Lỗi máy chủ: {response.StatusCode}");
 

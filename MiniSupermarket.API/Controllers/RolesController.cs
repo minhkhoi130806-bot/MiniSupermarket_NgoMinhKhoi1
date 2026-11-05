@@ -1,8 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using MiniSupermarket.API.Models;
 
 namespace MiniSupermarket.API.Controllers
 {
+    [Authorize(Roles = "Admin")]
     [Route("api/[controller]")] // Định tuyến: /api/roles
     [ApiController]
     public class RolesController : ControllerBase

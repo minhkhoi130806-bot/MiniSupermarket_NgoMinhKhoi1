@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -889,8 +889,10 @@ namespace MiniSupermarket.WinForms
 
             try
             {
-                using HttpResponseMessage response =
-                    await ApiClientService.Client.GetAsync($"products/paged?page={page}&pageSize={_pageSize}");
+                string pagedUrl = $"products/paged?page={page}&pageSize={_pageSize}";
+                if (!string.IsNullOrWhiteSpace(txtKeyword.Text))
+                    pagedUrl += $"&keyword={Uri.EscapeDataString(txtKeyword.Text.Trim())}";
+                using HttpResponseMessage response = await ApiClientService.Client.GetAsync(pagedUrl);
 
                 if (!response.IsSuccessStatusCode)
                     throw await CreateApiExceptionAsync(response);
@@ -980,26 +982,20 @@ namespace MiniSupermarket.WinForms
         /// <summary>
         /// Nút Tìm kiếm: Lọc sản phẩm theo tên hoặc mã vạch
         /// </summary>
-        private void btnSearch_Click(object? sender, EventArgs e)
+        private async void btnSearch_Click(object? sender, EventArgs e)
         {
-            string keyword = txtKeyword.Text.Trim();
-
-            if (string.IsNullOrWhiteSpace(keyword))
+            SetBusy(true);
+            try
             {
-                DisplayProducts(productList);
-                return;
+                await LoadProductsPagedAsync(1);
             }
-
-            var result = productList.Where(p =>
-                (p.ProductName ?? "").Contains(keyword, StringComparison.OrdinalIgnoreCase) ||
-                (p.Barcode ?? "").Contains(keyword, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            DisplayProducts(result);
-
-            if (result.Count == 0)
+            catch (Exception ex)
             {
-                MessageBox.Show("Không tìm thấy sản phẩm phù hợp!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ShowApiError("Lỗi tìm kiếm sản phẩm:", ex);
+            }
+            finally
+            {
+                SetBusy(false);
             }
         }
 
@@ -1081,7 +1077,7 @@ namespace MiniSupermarket.WinForms
 
                 MessageBox.Show("Thêm sản phẩm thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                await LoadProductsAsync();
+                await LoadProductsPagedAsync(_currentPage);
                 ClearInputs();
             }
             catch (Exception ex)
@@ -1130,7 +1126,7 @@ namespace MiniSupermarket.WinForms
 
                 MessageBox.Show("Cập nhật sản phẩm thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                await LoadProductsAsync();
+                await LoadProductsPagedAsync(_currentPage);
                 ClearInputs();
             }
             catch (Exception ex)
@@ -1175,7 +1171,7 @@ namespace MiniSupermarket.WinForms
 
                 MessageBox.Show("Xóa sản phẩm thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                await LoadProductsAsync();
+                await LoadProductsPagedAsync(_currentPage);
                 ClearInputs();
             }
             catch (Exception ex)

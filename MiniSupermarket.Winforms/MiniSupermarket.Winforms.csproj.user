@@ -19,6 +19,9 @@
     <Compile Update="FormMainShell.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Update="FormOrderManagement.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Update="FormPOS.cs">
       <SubType>Form</SubType>
     </Compile>

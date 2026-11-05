@@ -7,6 +7,7 @@ using System.Security.Claims;
 
 namespace MiniSupermarket.API.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class CustomersController : ControllerBase
