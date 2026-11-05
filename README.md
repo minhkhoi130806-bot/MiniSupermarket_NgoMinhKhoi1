@@ -267,4 +267,12 @@ Kho lưu trữ GitHub đã được phân nhánh và đẩy đầy đủ các m�
 
 ---
 
-> **© 2026 - Ngô Minh Khôi (MSSV: 2124110139) - Đồ án Lập trình Ứng dụng .NET Core.**
+## 👨‍💻 5. Tác giả
+
+* **Họ tên sinh viên:** Ngô Minh Khôi
+
+
+* **Mã sinh viên:** 2124110139
+
+
+* **Lớp học phần:** CCQ2411D
