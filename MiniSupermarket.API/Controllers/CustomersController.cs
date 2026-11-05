@@ -96,7 +96,7 @@ namespace MiniSupermarket.API.Controllers
 
 
         // CREATE: Chi Admin moi duoc them khach hang
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Cashier")]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] Customer newCustomer)
         {
@@ -114,7 +114,7 @@ namespace MiniSupermarket.API.Controllers
         }
 
         // UPDATE: Chi Admin moi duoc cap nhat khach hang
-        [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin,Cashier")]
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] Customer updateData)
         {

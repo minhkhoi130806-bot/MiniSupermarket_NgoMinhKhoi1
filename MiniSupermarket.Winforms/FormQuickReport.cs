@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -351,13 +351,13 @@ namespace MiniSupermarket.WinForms
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             row.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-            // Bảng 1: Top 10 sản phẩm bán chạy nhất (Tiêu chí 46)
+            // Bảng 1: Top 5 sản phẩm bán chạy nhất (Tiêu chí 46)
             dgvTop = CreateGrid();
             AddCol(dgvTop, "Rank", "#", 8, DataGridViewContentAlignment.MiddleCenter);
             AddCol(dgvTop, "Name", "Tên sản phẩm", 52, DataGridViewContentAlignment.MiddleLeft);
             AddCol(dgvTop, "Qty", "SL đã bán", 16, DataGridViewContentAlignment.MiddleCenter);
             AddCol(dgvTop, "Revenue", "Doanh thu", 24, DataGridViewContentAlignment.MiddleRight);
-            var topCard = MakeCard("TOP SẢN PHẨM BÁN CHẠY NHẤT ", dgvTop);
+            var topCard = MakeCard("TOP 5 SẢN PHẨM BÁN CHẠY NHẤT (TIÊU CHÍ 46)", dgvTop);
             topCard.Margin = new Padding(0, 0, 4, 0);
 
             // Bảng 2: Bảng chi tiết doanh thu theo Danh mục hàng hóa (đối chiếu biểu đồ tròn)
@@ -609,10 +609,10 @@ namespace MiniSupermarket.WinForms
             pieChart.Data = d.CategoryShares;
             pieChart.Invalidate();
 
-            // 4. Bảng Top 10 sản phẩm bán chạy (Tiêu chí 46)
+            // 4. Bảng Top 5 sản phẩm bán chạy (Tiêu chí 46)
             dgvTop.Rows.Clear();
             int rank = 1;
-            foreach (var p in d.TopProducts)
+            foreach (var p in d.TopProducts.Take(5))
                 dgvTop.Rows.Add(rank++, p.ProductName, p.Quantity.ToString("N0", Vi), p.Revenue.ToString("N0", Vi) + " đ");
 
             // 5. Bảng chi tiết doanh thu theo Nhóm hàng

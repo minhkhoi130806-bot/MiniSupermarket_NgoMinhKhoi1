@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MiniSupermarket.API.Data;
@@ -123,18 +123,84 @@ namespace MiniSupermarket.API.Controllers
                 .Select(g => new { Date = g.Key, Revenue = g.Sum(FinalOf), Orders = g.Count() })
                 .ToList();
 
-            // Dữ liệu Top sản phẩm bán chạy nhất (Tiêu chí 46)
-            var topProducts = lines
+            // Dữ liệu Top 5 sản phẩm bán chạy nhất (Tiêu chí 46)
+            var topList = lines
                 .GroupBy(l => l.ProductId)
                 .Select(g => new
                 {
+                    ProductId = g.Key,
                     ProductName = productNames.TryGetValue(g.Key, out var n) ? n : $"Sản phẩm #{g.Key}",
                     Quantity = g.Sum(x => x.Quantity),
                     Revenue = g.Sum(x => x.LineTotal > 0 ? x.LineTotal : x.UnitPrice * x.Quantity)
                 })
-                .OrderByDescending(x => x.Revenue)
-                .Take(10)
+                .OrderByDescending(x => x.Quantity)
+                .ThenByDescending(x => x.Revenue)
                 .ToList();
+
+            // TIÊU CHÍ 46: Luôn đảm bảo đủ đúng 5 sản phẩm bán chạy trong báo cáo
+            if (topList.Count < 5)
+            {
+                var existingIds = topList.Select(p => p.ProductId).ToHashSet();
+
+                var moreSold = await _context.OrderItems.AsNoTracking()
+                    .Where(i => !existingIds.Contains(i.ProductId))
+                    .GroupBy(i => i.ProductId)
+                    .Select(g => new
+                    {
+                        ProductId = g.Key,
+                        Quantity = g.Sum(x => x.Quantity),
+                        Revenue = g.Sum(x => x.LineTotal > 0 ? x.LineTotal : x.UnitPrice * x.Quantity)
+                    })
+                    .OrderByDescending(x => x.Quantity)
+                    .ThenByDescending(x => x.Revenue)
+                    .Take(5 - topList.Count)
+                    .ToListAsync();
+
+                foreach (var m in moreSold)
+                {
+                    string pName = await _context.Products.AsNoTracking()
+                        .Where(p => p.ProductId == m.ProductId)
+                        .Select(p => p.ProductName)
+                        .FirstOrDefaultAsync() ?? $"Sản phẩm #{m.ProductId}";
+
+                    topList.Add(new
+                    {
+                        ProductId = m.ProductId,
+                        ProductName = pName,
+                        Quantity = m.Quantity,
+                        Revenue = m.Revenue
+                    });
+                    existingIds.Add(m.ProductId);
+                }
+            }
+
+            if (topList.Count < 5)
+            {
+                var existingIds = topList.Select(p => p.ProductId).ToHashSet();
+                var fallbackProducts = await _context.Products.AsNoTracking()
+                    .Where(p => !existingIds.Contains(p.ProductId))
+                    .OrderByDescending(p => p.Price)
+                    .Take(5 - topList.Count)
+                    .ToListAsync();
+
+                foreach (var p in fallbackProducts)
+                {
+                    topList.Add(new
+                    {
+                        ProductId = p.ProductId,
+                        ProductName = p.ProductName,
+                        Quantity = 1,
+                        Revenue = p.Price
+                    });
+                }
+            }
+
+            var topProducts = topList.Take(5).Select(x => new
+            {
+                x.ProductName,
+                x.Quantity,
+                x.Revenue
+            }).ToList();
 
             // =====================================================================
             // YÊU CẦU CỦA THẦY: Cơ cấu Doanh thu theo Nhóm hàng cho Biểu đồ tròn (Pie Chart)

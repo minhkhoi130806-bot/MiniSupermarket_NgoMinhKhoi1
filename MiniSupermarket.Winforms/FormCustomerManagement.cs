@@ -715,11 +715,23 @@ namespace MiniSupermarket.Winforms
         // Khoa/mo cac nut trong luc goi API
         private void SetBusy(bool busy)
         {
+            bool isAdmin = string.Equals(SessionManager.CurrentRole?.Trim(), "Admin", StringComparison.OrdinalIgnoreCase);
             btnAdd.Enabled = !busy;
             btnUpdate.Enabled = !busy;
-            btnDelete.Enabled = !busy;
+            btnDelete.Enabled = !busy && isAdmin;
             btnLoad.Enabled = !busy;
             btnSearch.Enabled = !busy;
+        }
+
+        private void ApplyRolePermissions()
+        {
+            bool isAdmin = string.Equals(SessionManager.CurrentRole?.Trim(), "Admin", StringComparison.OrdinalIgnoreCase);
+            if (!isAdmin)
+            {
+                btnDelete.Enabled = false;
+                btnDelete.BackColor = Color.FromArgb(160, 160, 160);
+                btnDelete.Text = "XÓA (CHỈ ADMIN)";
+            }
         }
 
         private void DisplayCustomers(List<Customer> customers, string statusPrefix)
@@ -733,6 +745,7 @@ namespace MiniSupermarket.Winforms
 
         private async void FormCustomerManagement_Load(object? sender, EventArgs e)
         {
+            ApplyRolePermissions();
             await LoadCustomersPagedAsync(1); // Đổi thành dòng này
         }
 
@@ -912,6 +925,16 @@ namespace MiniSupermarket.Winforms
 
         private async void btnDelete_Click(object? sender, EventArgs e)
         {
+            if (!string.Equals(SessionManager.CurrentRole?.Trim(), "Admin", StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show(
+                    "Tài khoản Thu ngân (Cashier) chỉ được phép Thêm và Cập nhật khách hàng.\nChức năng Xóa chỉ dành riêng cho Quản trị viên (Admin).",
+                    "Không có quyền thao tác",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
             if (!int.TryParse(txtCustomerId.Text, out int id))
             {
                 MessageBox.Show(

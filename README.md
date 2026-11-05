@@ -12,10 +12,11 @@
 2. [Công nghệ & Kỹ thuật Nền tảng](#2-công-nghệ--kỹ-thuật-nền-tảng)
 3. [Cấu trúc Solution Đồ án](#3-cấu-trúc-solution-đồ-án)
 4. [Hướng dẫn Cài đặt & Khởi chạy Chi tiết (Tiêu chí 10)](#4-hướng-dẫn-cài-đặt--khởi-chạy-chi-tiết-tiêu-chí-10)
-5. [Tài khoản Đăng nhập & Ma trận Phân quyền RBAC](#5-tài-khoản-đăng-nhập--ma-trận-phân-quyền-rbac)
-6. [Bảng Đặc tả Danh mục Web API Endpoints (Tiêu chí 3 & 5)](#6-bảng-đặc-tả-danh-mục-web-api-endpoints-tiêu-chí-3--5)
-7. [Bảng Đối chiếu 50 Tiêu chí Đánh giá Đồ án](#7-bảng-đối-chiếu-50-tiêu-chí-đánh-giá-đồ-án)
-8. [Tiến độ Git Branches theo các Buổi thực hành (Tiêu chí 9)](#8-tiến-độ-git-branches-theo-các-buổi-thực-hành-tiêu-chí-9)
+5. [Tác giả](#5-tác-giả)
+6. [Tài khoản Đăng nhập & Ma trận Phân quyền RBAC](#6-tài-khoản-đăng-nhập--ma-trận-phân-quyền-rbac)
+7. [Bảng Đặc tả Danh mục Web API Endpoints (Tiêu chí 3 & 5)](#7-bảng-đặc-tả-danh-mục-web-api-endpoints-tiêu-chí-3--5)
+8. [Bảng Đối chiếu 50 Tiêu chí Đánh giá Đồ án](#8-bảng-đối-chiếu-50-tiêu-chí-đánh-giá-đồ-án)
+9. [Tiến độ Git Branches theo các Buổi thực hành (Tiêu chí 9)](#9-tiến-độ-git-branches-theo-các-buổi-thực-hành-tiêu-chí-9)
 
 ---
 
@@ -170,7 +171,15 @@ Mở tệp `MiniSupermarket.API/appsettings.json`, kiểm tra hoặc cập nhậ
 
 ---
 
-## 🔑 5. Tài khoản Đăng nhập & Ma trận Phân quyền RBAC
+## 🧑‍💻 5. Tác giả
+
+* **Họ tên sinh viên:** Ngô Minh Khôi
+* **Mã sinh viên:** 2124110139
+* **Lớp học phần:** CCQ2411D
+
+---
+
+## 🔑 6. Tài khoản Đăng nhập & Ma trận Phân quyền RBAC
 
 Hệ thống được nạp sẵn các tài khoản kiểm thử tương ứng với từng vai trò người dùng trong CSDL:
 
@@ -178,12 +187,12 @@ Hệ thống được nạp sẵn các tài khoản kiểm thử tương ứng v
 | :--- | :--- | :--- | :--- |
 | **`admin01`** | `123456` | **Admin** | **Toàn quyền**: Bán hàng POS, Quản lý đơn hàng, Danh mục, Sản phẩm, Khách hàng, Báo cáo doanh thu & Quản trị tài khoản. |
 | **`admin02`** | `123456` | **Admin** | Tài khoản quản trị viên dự phòng. |
-| **`cashier01`** | `123456` | **Cashier** | **Thu ngân**: Quầy bán hàng POS, Quản lý & tra cứu đơn hàng, Xem danh sách sản phẩm, Quản lý khách hàng. *(Ẩn Báo cáo doanh thu và Quản trị tài khoản)* |
+| **`cashier01`** | `123456` | **Cashier** | **Thu ngân**: Quầy bán hàng POS, Quản lý & tra cứu đơn hàng, Xem danh sách sản phẩm, **Thêm & Cập nhật khách hàng thành viên**. *(Ẩn Báo cáo doanh thu và Quản trị tài khoản)* |
 | **`ware01`** | `123456` | **Warehouse** | **Thủ kho**: Quản lý Nhóm hàng và Quản lý Sản phẩm / Tồn kho. |
 
 ---
 
-## 🌐 6. Bảng Đặc tả Danh mục Web API Endpoints (Tiêu chí 3 & 5)
+## 🌐 7. Bảng Đặc tả Danh mục Web API Endpoints (Tiêu chí 3 & 5)
 
 Toàn bộ các API đều được xây dựng theo chuẩn RESTful, hỗ trợ bảo mật JWT Bearer Token:
 
@@ -207,8 +216,9 @@ Toàn bộ các API đều được xây dựng theo chuẩn RESTful, hỗ trợ
 | **Categories**| `DELETE`| `/api/categories/{id}` | Admin | Xóa nhóm hàng. |
 | **Customers** | `GET` | `/api/customers/paged` | Authenticated | Lấy danh sách khách hàng phân trang máy chủ. |
 | **Customers** | `GET` | `/api/customers/phone/{phone}`| Authenticated| Tra cứu khách hàng theo SĐT để tích điểm / trừ điểm tại POS. |
-| **Customers** | `POST` | `/api/customers` | Authenticated | Đăng ký khách hàng thành viên mới. |
-| **Customers** | `PUT` | `/api/customers/{id}` | Authenticated | Cập nhật thông tin khách hàng. |
+| **Customers** | `POST` | `/api/customers` | Admin, Cashier | Thêm khách hàng thành viên mới vào hệ thống. |
+| **Customers** | `PUT` | `/api/customers/{id}` | Admin, Cashier | Cập nhật thông tin khách hàng. |
+| **Customers** | `DELETE`| `/api/customers/{id}` | Admin | Xóa khách hàng khỏi hệ thống (Chỉ Admin). |
 | **Reports** | `GET` | `/api/reports/dashboard-summary`| Admin | **Tiêu chí 44**: Trả về 4 chỉ số KPI (Doanh thu hôm nay, Tổng đơn, Khách hàng mới, Hàng sắp hết). |
 | **Reports** | `GET` | `/api/reports/revenue` | Admin | **Tiêu chí 45**: Báo cáo doanh thu theo ngày & cơ cấu nhóm hàng (gọi Stored Procedure). |
 | **Reports** | `GET` | `/api/reports/top-selling` | Admin | **Tiêu chí 46**: Top 5 sản phẩm bán chạy nhất bằng LINQ GroupBy. |
@@ -216,7 +226,7 @@ Toàn bộ các API đều được xây dựng theo chuẩn RESTful, hỗ trợ
 
 ---
 
-## 🏆 7. Bảng Đối chiếu 50 Tiêu chí Đánh giá Đồ án
+## 🏆 8. Bảng Đối chiếu 50 Tiêu chí Đánh giá Đồ án
 
 | Nhóm | STT | Tiêu chí đánh giá | Vị trí File mã nguồn | Mô tả chi tiết thực hiện |
 | :---: | :---: | :--- | :--- | :--- |
@@ -254,7 +264,7 @@ Toàn bộ các API đều được xây dựng theo chuẩn RESTful, hỗ trợ
 
 ---
 
-## 🌿 8. Tiến độ Git Branches theo các Buổi thực hành (Tiêu chí 9)
+## 🌿 9. Tiến độ Git Branches theo các Buổi thực hành (Tiêu chí 9)
 
 Kho lưu trữ GitHub đã được phân nhánh và đẩy đầy đủ các mốc bài làm:
 
